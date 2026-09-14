@@ -154,9 +154,11 @@ target repository's origin or the user explicitly asks to initialize it. Never a
 Beads. The root coordinator is the sole Beads writer. Children get immutable briefs that include
 their bead IDs, and they never run `bd` mutations. Commit and push Dolt after each durable transition.
 Never force that push, and never use JSONL as a sync mechanism. An approved tracker spec and its
-decision issues own the product contract. Beads owns only program tasks and dependencies derived
-from those sources. jj and GitHub still own code, branches, commits, PRs, and merges. Lazar records
-still own verification evidence where their contract applies.
+decision issues own the product contract. On recovery, bootstrap, pull, and prime Beads. Read the
+epic admission record, then revalidate the approved body hash and product sources. Do not mutate the
+Beads graph or start a new child before revalidation passes. Beads owns only program tasks and
+dependencies derived from those sources. jj and GitHub still own code, branches, commits, PRs, and
+merges. Lazar records still own verification evidence where their contract applies.
 
 <!-- /surface:sandbox -->
 

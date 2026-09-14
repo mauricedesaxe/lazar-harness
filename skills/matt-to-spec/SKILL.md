@@ -19,9 +19,13 @@ Resolve the issue tracker through the **Tracker resolution** contract in `CLAUDE
 
 Check with the user that these seams match their expectations.
 
-3. Write the spec using the template below, then publish it to the project issue tracker as an unapproved draft. Apply `ready-for-human` when the tracker supports that label, or publish it without a triage label. Do not apply `ready-for-agent`. Product shaping owns approval and may apply `ready-for-agent` only after the approved-body marker exists.
+3. Write the spec using the template below. If Wayfinder produced the source material, include `## Product sources` and link its map. Omit that section for a bounded spec without a map. Then publish the spec to the project issue tracker as an unapproved draft. Apply `ready-for-human` when the tracker supports that label, or publish it without a triage label. Do not apply `ready-for-agent`. Product shaping owns approval and may apply `ready-for-agent` only after the approved-body marker exists.
 
 <spec-template>
+
+## Product sources
+
+For a Wayfinder spec, link the one product-decision map that supplied this spec. Omit this section when no map exists.
 
 ## Problem Statement
 

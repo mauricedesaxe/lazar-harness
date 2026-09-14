@@ -26,6 +26,20 @@ assert_not_contains() {
   if grep -qF -- "$2" "$3"; then fail "$1"; else pass "$1"; fi
 }
 
+assert_in_order() {
+  local name=$1 file=$2 previous=0 phrase line
+  shift 2
+  for phrase in "$@"; do
+    line=$(grep -nF -m1 -- "$phrase" "$file" | cut -d: -f1)
+    if [ -z "$line" ] || [ "$line" -le "$previous" ]; then
+      fail "$name"
+      return
+    fi
+    previous=$line
+  done
+  pass "$name"
+}
+
 lockfile_skills() {
   awk -F'"' '/^    "/ && /: \{$/ { print $2 }' "$HARNESS_SOURCE/skills-lock.json"
 }
@@ -154,6 +168,9 @@ product_shaping="$claude/skills/pstack-poteto-mode/playbooks/product-shaping.md"
 opencode_router="$opencode/skills/pstack-poteto-mode/SKILL.md"
 opencode_orchestrate="$opencode/skills/pstack-poteto-mode/playbooks/orchestrate.md"
 opencode_product_shaping="$opencode/skills/pstack-poteto-mode/playbooks/product-shaping.md"
+hash_helper_source="$HARNESS_SOURCE/skills/pstack-poteto-mode/scripts/spec-body-hash.sh"
+claude_hash_helper="$claude/skills/pstack-poteto-mode/scripts/spec-body-hash.sh"
+opencode_hash_helper="$opencode/skills/pstack-poteto-mode/scripts/spec-body-hash.sh"
 
 assert_contains "the local router sends standing work to figure-it-out" \
   'Local work does not route here.' "$router"
@@ -172,6 +189,17 @@ for installed_shaping in "$product_shaping" "$opencode_product_shaping"; do
 done
 assert_contains "the installed router reaches Product shaping" \
   '`playbooks/product-shaping.md`' "$router"
+assert_same_file "the body hash helper installs to Claude Code" \
+  "$hash_helper_source" "$claude_hash_helper"
+assert_same_file "the body hash helper installs to OpenCode" \
+  "$hash_helper_source" "$opencode_hash_helper"
+for installed_hash_helper in "$claude_hash_helper" "$opencode_hash_helper"; do
+  if [ -x "$installed_hash_helper" ]; then
+    pass "the installed body hash helper remains executable"
+  else
+    fail "the installed body hash helper remains executable"
+  fi
+done
 for local_file in "$claude/CLAUDE.md" "$router" "$orchestrate" "$product_shaping" \
   "$opencode/AGENTS.md" "$opencode_router" "$opencode_orchestrate" \
   "$opencode_product_shaping"; do
@@ -730,10 +758,13 @@ for root in "$claude" "$opencode"; do
       '/setup-matt-pocock-skills' "$root/skills/matt-$name/SKILL.md"
   done
   assert_contains "installed matt-to-spec keeps drafts human-ready" \
-    'publish it to the project issue tracker as an unapproved draft' \
+    'publish the spec to the project issue tracker as an unapproved draft' \
     "$root/skills/matt-to-spec/SKILL.md"
-  assert_contains "installed matt-wayfinder requires a server-ordered claim identifier" \
-    'server-ordered unique identifier' "$root/skills/matt-wayfinder/SKILL.md"
+  assert_contains "installed matt-wayfinder uses an exact claim marker" \
+    'Wayfinder-Claim: <session-unique-id>' "$root/skills/matt-wayfinder/SKILL.md"
+  assert_contains "installed matt-wayfinder tells a loser to release and skip" \
+    'A losing session releases its own claim, skips the ticket, and refreshes the frontier.' \
+    "$root/skills/matt-wayfinder/SKILL.md"
   assert_not_contains "installed matt-wayfinder does not treat assignment as an exclusive claim" \
     'That assignee _is_ the claim' "$root/skills/matt-wayfinder/SKILL.md"
   assert_contains "installed matt-prototype stops before production code" \
@@ -1343,6 +1374,8 @@ sandbox_opencode_router="$SANDBOX_HOME/.config/opencode/skills/pstack-poteto-mod
 sandbox_opencode_orchestrate="$SANDBOX_HOME/.config/opencode/skills/pstack-poteto-mode/playbooks/orchestrate.md"
 sandbox_product_shaping="$SANDBOX_HOME/.claude/skills/pstack-poteto-mode/playbooks/product-shaping.md"
 sandbox_opencode_product_shaping="$SANDBOX_HOME/.config/opencode/skills/pstack-poteto-mode/playbooks/product-shaping.md"
+sandbox_claude_hash_helper="$SANDBOX_HOME/.claude/skills/pstack-poteto-mode/scripts/spec-body-hash.sh"
+sandbox_opencode_hash_helper="$SANDBOX_HOME/.config/opencode/skills/pstack-poteto-mode/scripts/spec-body-hash.sh"
 
 assert_contains "the sandbox CLAUDE.md makes the root the sole Beads writer" \
   'The root coordinator is the sole Beads writer.' "$sandbox_claude_md"
@@ -1373,21 +1406,52 @@ assert_contains "the sandbox orchestrate playbook commits durable Beads state" \
 assert_contains "the sandbox orchestrate playbook pushes committed Beads state" \
   '`bd dolt push`' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook forbids child Beads writes" \
-  'They never create, update,' "$sandbox_orchestrate"
+  'never create, update, close, or push beads.' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook keeps verification in Lazar records" \
   'Existing Lazar records own verification evidence' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook admits one approved tracker spec" \
   'only from one approved tracker spec' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook uses an absolute installed hash helper" \
+  '<absolute-installed-skill-path>/scripts/spec-body-hash.sh <spec-number>' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook keeps the target repository as cwd" \
+  'Keep the target repository as the current' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook compares the approval body hash" \
-  'newest approval marker equals the current hash' "$sandbox_orchestrate"
+  'newest exact `Approved-Spec-Body-SHA256: <hash>` marker must equal the' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook rejects stale approval" \
-  'marker is absent or stale' "$sandbox_orchestrate"
+  'A missing or stale marker rejects admission.' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook rejects unresolved product decisions" \
-  'ticket remains open' "$sandbox_orchestrate"
+  'Reject open children' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook checks closure reasons" \
+  '`NOT_PLANNED` closure, duplicate closure' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook requires resolution comments" \
+  'a non-empty resolution comment whose first line is' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook revalidates before graph changes" \
+  'any Beads graph mutation' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook stores the approved hash" \
+  'APPROVED_SPEC_SHA256 <hash>' "$sandbox_orchestrate"
+assert_contains "the sandbox CLAUDE.md pins read-only recovery before admission" \
+  'On recovery, bootstrap, pull, and prime Beads.' "$sandbox_claude_md"
+assert_contains "the sandbox CLAUDE.md blocks mutation before revalidation" \
+  'Beads graph or start a new child before revalidation passes.' "$sandbox_claude_md"
+assert_in_order "the sandbox orchestrate playbook pins the cold recovery order" \
+  "$sandbox_orchestrate" \
+  'After a runtime restart, run `bd bootstrap`, `bd dolt pull`, and `bd prime`.' \
+  'Read the epic admission record with `bd show <epic-id>`.' \
+  'Then repeat the full admission check.' \
+  'Do not run any Beads graph mutation or start a new child'
 assert_contains "the sandbox orchestrate playbook rejects in-scope fog" \
   'under `Not yet specified`' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook adds SOURCE to child briefs" \
   'SOURCE       approved spec URL and relevant closed decision issue URLs' "$sandbox_orchestrate"
+for installed_hash_helper in "$sandbox_claude_hash_helper" "$sandbox_opencode_hash_helper"; do
+  assert_same_file "the sandbox body hash helper travels with its skill" \
+    "$hash_helper_source" "$installed_hash_helper"
+  if [ -x "$installed_hash_helper" ]; then
+    pass "the sandbox body hash helper remains executable"
+  else
+    fail "the sandbox body hash helper remains executable"
+  fi
+done
 for sandbox_shaping in "$sandbox_product_shaping" "$sandbox_opencode_product_shaping"; do
   assert_sandbox_rendered "sandbox Product shaping under ${sandbox_shaping#"$SANDBOX_HOME/"}" \
     "$sandbox_shaping" "$PRODUCT_SHAPING_SANDBOX" "$PRODUCT_SHAPING_LOCAL"

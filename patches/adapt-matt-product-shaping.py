@@ -18,21 +18,29 @@ REPLACEMENTS = {
         ),
         (
             "A session **claims** a ticket by assigning it to the dev driving the map, **first**, before any work, so concurrent sessions skip it. That assignee _is_ the claim: an open, unassigned ticket is unclaimed.",
-            "A session **claims** a ticket through the resolved tracker contract, **first**, before any work. The claim needs a server-ordered unique identifier that concurrent sessions can compare. An assignee may identify the worker, but assignment alone is not an exclusive claim. The tracker contract defines the claim operation and how a losing session skips the ticket.",
+            "A session **claims** a ticket through the resolved tracker contract, **first**, before any work. Post `Wayfinder-Claim: <session-unique-id>`, then fetch every exact claim comment in server order. Continue only when this session owns the earliest valid claim. A released claim is not valid. An assignee may identify the worker, but assignment alone is not an exclusive claim. A losing session releases its own claim, skips the ticket, and refreshes the frontier.",
         ),
         (
             "2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it**: assign it to yourself before any work.",
-            "2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it** through the resolved tracker contract before any work, and continue only if this session owns the server-ordered unique claim identifier.",
+            "2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it** through the resolved tracker contract before any work. Continue only if this session owns the earliest valid `Wayfinder-Claim: <id>` comment in server order. If this session loses, release its claim, skip the ticket, and refresh the frontier.",
+        ),
+        (
+            "4. Record the resolution: post the answer as a **resolution comment**, **close** the issue, and **append a context pointer** to the map's Decisions-so-far.",
+            "4. Record the resolution: post a non-empty answer whose first line is `Wayfinder-Resolution:`, close the issue with reason `completed`, and append a context pointer to the map's Decisions-so-far.",
         ),
     ],
     "to-spec/SKILL.md": [
+        (
+            "<spec-template>\n\n## Problem Statement",
+            "<spec-template>\n\n## Product sources\n\nFor a Wayfinder spec, link the one product-decision map that supplied this spec. Omit this section when no map exists.\n\n## Problem Statement",
+        ),
         (
             "The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.",
             "Resolve the issue tracker through the **Tracker resolution** contract in `CLAUDE.md`. Follow its order: repo config, machine-local note, inference, then ask once and save the answer. Use the resolved tracker's commands, conventions, and triage labels.",
         ),
         (
             "3. Write the spec using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.",
-            "3. Write the spec using the template below, then publish it to the project issue tracker as an unapproved draft. Apply `ready-for-human` when the tracker supports that label, or publish it without a triage label. Do not apply `ready-for-agent`. Product shaping owns approval and may apply `ready-for-agent` only after the approved-body marker exists.",
+            "3. Write the spec using the template below. If Wayfinder produced the source material, include `## Product sources` and link its map. Omit that section for a bounded spec without a map. Then publish the spec to the project issue tracker as an unapproved draft. Apply `ready-for-human` when the tracker supports that label, or publish it without a triage label. Do not apply `ready-for-agent`. Product shaping owns approval and may apply `ready-for-agent` only after the approved-body marker exists.",
         ),
     ],
     "to-tickets/SKILL.md": [
