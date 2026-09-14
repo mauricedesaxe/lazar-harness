@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "lazar_harness",
+  "project_id": "28d8c636-7d13-48da-9ac3-4e18396885a4"
+}
