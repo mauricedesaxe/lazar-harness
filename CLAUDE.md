@@ -43,9 +43,9 @@ The pstack flow runs as written, with these standing overrides.
 - **`lazar-tldraw` and `lazar-qa` get reached for proactively.** Show the idea, don't only describe
   it, and drive a change through a real browser before it ships. Diagram any system with three or
   more components and any data flow, and fat-marker a screen before building it.
-- **One of Matt's skills is retained**, `matt-handoff`, for compaction. pstack covers the rest:
-  its `fix-root-causes` leaf owns reproduce-before-you-touch, and `minimize-reader-load` and
-  `model-the-domain` own the design vocabulary the retired `codebase-design` carried.
+- **Matt's product-shaping skills own the human-led front half.** `pstack-poteto-mode` routes vague
+  ideas through grilling, optional wayfinding, and an approved tracker spec. P stack owns all
+  implementation after approval. `matt-handoff` remains available for compaction.
 
 ## Writing
 

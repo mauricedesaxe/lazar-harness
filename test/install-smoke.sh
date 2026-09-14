@@ -150,13 +150,21 @@ assert_surface_rendered "CLAUDE.md installed to OpenCode as AGENTS.md" \
 
 router="$claude/skills/pstack-poteto-mode/SKILL.md"
 orchestrate="$claude/skills/pstack-poteto-mode/playbooks/orchestrate.md"
+product_shaping="$claude/skills/pstack-poteto-mode/playbooks/product-shaping.md"
 opencode_router="$opencode/skills/pstack-poteto-mode/SKILL.md"
 opencode_orchestrate="$opencode/skills/pstack-poteto-mode/playbooks/orchestrate.md"
+opencode_product_shaping="$opencode/skills/pstack-poteto-mode/playbooks/product-shaping.md"
 
 assert_contains "the local router sends standing work to figure-it-out" \
   'Local work does not route here.' "$router"
 assert_contains "the local orchestrate playbook routes one predicate to Autonomous run" \
   'Use **Autonomous run** when one agent can drive the work to one' "$orchestrate"
+assert_same_file "Product shaping installs to Claude Code" \
+  "$HARNESS_SOURCE/skills/pstack-poteto-mode/playbooks/product-shaping.md" "$product_shaping"
+assert_same_file "Product shaping installs to OpenCode" \
+  "$HARNESS_SOURCE/skills/pstack-poteto-mode/playbooks/product-shaping.md" "$opencode_product_shaping"
+assert_contains "the installed router reaches Product shaping" \
+  '`playbooks/product-shaping.md`' "$router"
 for local_file in "$claude/CLAUDE.md" "$router" "$orchestrate" \
   "$opencode/AGENTS.md" "$opencode_router" "$opencode_orchestrate"; do
   assert_not_contains "the local $(basename -- "$local_file") has no Beads policy" \
