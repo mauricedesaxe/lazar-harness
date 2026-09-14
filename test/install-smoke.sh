@@ -159,14 +159,22 @@ assert_contains "the local router sends standing work to figure-it-out" \
   'Local work does not route here.' "$router"
 assert_contains "the local orchestrate playbook routes one predicate to Autonomous run" \
   'Use **Autonomous run** when one agent can drive the work to one' "$orchestrate"
-assert_same_file "Product shaping installs to Claude Code" \
-  "$HARNESS_SOURCE/skills/pstack-poteto-mode/playbooks/product-shaping.md" "$product_shaping"
-assert_same_file "Product shaping installs to OpenCode" \
-  "$HARNESS_SOURCE/skills/pstack-poteto-mode/playbooks/product-shaping.md" "$opencode_product_shaping"
+PRODUCT_SHAPING_LOCAL='For multi-ticket work, call **matt-to-tickets**'
+PRODUCT_SHAPING_SANDBOX='stop Matt at the approved tracker spec'
+
+assert_surface_rendered "Product shaping installed to Claude Code" \
+  "$product_shaping" "$PRODUCT_SHAPING_LOCAL" "$PRODUCT_SHAPING_SANDBOX"
+assert_surface_rendered "Product shaping installed to OpenCode" \
+  "$opencode_product_shaping" "$PRODUCT_SHAPING_LOCAL" "$PRODUCT_SHAPING_SANDBOX"
+for installed_shaping in "$product_shaping" "$opencode_product_shaping"; do
+  assert_contains "local Product shaping persists an exact spec approval marker" \
+    'Approved-Spec-Body-SHA256: <hash>' "$installed_shaping"
+done
 assert_contains "the installed router reaches Product shaping" \
   '`playbooks/product-shaping.md`' "$router"
-for local_file in "$claude/CLAUDE.md" "$router" "$orchestrate" \
-  "$opencode/AGENTS.md" "$opencode_router" "$opencode_orchestrate"; do
+for local_file in "$claude/CLAUDE.md" "$router" "$orchestrate" "$product_shaping" \
+  "$opencode/AGENTS.md" "$opencode_router" "$opencode_orchestrate" \
+  "$opencode_product_shaping"; do
   assert_not_contains "the local $(basename -- "$local_file") has no Beads policy" \
     'Beads' "$local_file"
   assert_not_contains "the local $(basename -- "$local_file") has no direct bd command" \
@@ -1298,6 +1306,8 @@ sandbox_orchestrate="$SANDBOX_HOME/.claude/skills/pstack-poteto-mode/playbooks/o
 sandbox_opencode_md="$SANDBOX_HOME/.config/opencode/AGENTS.md"
 sandbox_opencode_router="$SANDBOX_HOME/.config/opencode/skills/pstack-poteto-mode/SKILL.md"
 sandbox_opencode_orchestrate="$SANDBOX_HOME/.config/opencode/skills/pstack-poteto-mode/playbooks/orchestrate.md"
+sandbox_product_shaping="$SANDBOX_HOME/.claude/skills/pstack-poteto-mode/playbooks/product-shaping.md"
+sandbox_opencode_product_shaping="$SANDBOX_HOME/.config/opencode/skills/pstack-poteto-mode/playbooks/product-shaping.md"
 
 assert_contains "the sandbox CLAUDE.md makes the root the sole Beads writer" \
   'The root coordinator is the sole Beads writer.' "$sandbox_claude_md"
@@ -1331,8 +1341,31 @@ assert_contains "the sandbox orchestrate playbook forbids child Beads writes" \
   'They never create, update,' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook keeps verification in Lazar records" \
   'Existing Lazar records own verification evidence' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook admits one approved tracker spec" \
+  'only from one approved tracker spec' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook compares the approval body hash" \
+  'newest approval marker equals the current hash' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook rejects stale approval" \
+  'marker is absent or stale' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook rejects unresolved product decisions" \
+  'ticket remains open' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook rejects in-scope fog" \
+  'under `Not yet specified`' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook adds SOURCE to child briefs" \
+  'SOURCE       approved spec URL and relevant closed decision issue URLs' "$sandbox_orchestrate"
+for sandbox_shaping in "$sandbox_product_shaping" "$sandbox_opencode_product_shaping"; do
+  assert_sandbox_rendered "sandbox Product shaping under ${sandbox_shaping#"$SANDBOX_HOME/"}" \
+    "$sandbox_shaping" "$PRODUCT_SHAPING_SANDBOX" "$PRODUCT_SHAPING_LOCAL"
+  assert_contains "sandbox Product shaping keeps one implementation graph" \
+    'derives the sole implementation task graph' "$sandbox_shaping"
+  assert_contains "sandbox Product shaping persists an exact spec approval marker" \
+    'Approved-Spec-Body-SHA256: <hash>' "$sandbox_shaping"
+  assert_not_contains "sandbox Product shaping skips matt-to-tickets" \
+    'For multi-ticket work, call **matt-to-tickets**' "$sandbox_shaping"
+done
 for sandbox_file in "$sandbox_claude_md" "$sandbox_router" "$sandbox_orchestrate" \
-  "$sandbox_opencode_md" "$sandbox_opencode_router" "$sandbox_opencode_orchestrate"; do
+  "$sandbox_product_shaping" "$sandbox_opencode_md" "$sandbox_opencode_router" \
+  "$sandbox_opencode_orchestrate" "$sandbox_opencode_product_shaping"; do
   assert_not_contains "the sandbox $(basename -- "$sandbox_file") has no orch.ts reference" \
     'orch.ts' "$sandbox_file"
 done

@@ -153,9 +153,10 @@ For a standing multi-session program, use Beads only when `refs/dolt/data` alrea
 target repository's origin or the user explicitly asks to initialize it. Never auto-initialize
 Beads. The root coordinator is the sole Beads writer. Children get immutable briefs that include
 their bead IDs, and they never run `bd` mutations. Commit and push Dolt after each durable transition.
-Never force that push, and never use JSONL as a sync mechanism. Beads owns program tasks and
-dependencies. jj and GitHub still own branches, commits, PRs, and merges. Lazar records still own
-verification evidence where their contract applies.
+Never force that push, and never use JSONL as a sync mechanism. An approved tracker spec and its
+decision issues own the product contract. Beads owns only program tasks and dependencies derived
+from those sources. jj and GitHub still own code, branches, commits, PRs, and merges. Lazar records
+still own verification evidence where their contract applies.
 
 <!-- /surface:sandbox -->
 
