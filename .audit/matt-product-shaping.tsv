@@ -1,0 +1,15 @@
+ts	phase	decision	why	evidence	result
+2026-09-14T09:15:50Z	frame	kept pstack-poteto-mode as the sole router	two lifecycle routers can both act correctly and still conflict	bead lazar-harness-tdl	accepted
+2026-09-14T09:15:50Z	frame	gave GitHub product decisions and Beads execution state	two implementation dependency graphs will drift	bead lazar-harness-tdl	accepted
+2026-09-14T09:15:50Z	workflow	serialized the Beads tasks	the tasks share vendor, manifest, documentation, and test files	bead lazar-harness-tdl	graph created
+2026-09-14T09:29:28Z	vendor	restored eleven Matt product-shaping skills	the selected bundle preserves upstream planning without restoring a second implementation lifecycle	commit 76d88350	tests green
+2026-09-14T09:42:31Z	router	added Product shaping under pstack-poteto-mode	the human now settles product decisions before P stack acts without a second router	commit 6563bc5c	tests green
+2026-09-14T10:06:14Z	handoff	made approved spec bodies the durable product contract	a body hash lets a fresh sandbox reject stale approval before it creates Beads work	commit b5230c04	local and sandbox install tests green
+2026-09-14T10:16:22Z	cleanup	removed plannotator-setup-goal	Product shaping replaces the broken route and explicit source sets remove its positional vendor invariant	commit 39125a10	install and vendor tests green
+2026-09-14T10:50:11Z	review fix	adapted Matt leaves at vendor time	direct leaves must resolve the tracker, stop prototypes before production, and wait for approved specs	commit 4a08e2cc	adaptation and install tests green
+2026-09-14T11:29:49Z	review fix	hardened spec admission and Wayfinder claims	failed fetches, stale approvals, unfinished decisions, and concurrent claims must stop before execution	commit e0d3c1d8	behavior and install tests green
+2026-09-14T13:05:09Z	boundary fix	closed the final product and execution boundary gaps	the approved spec must own requirements and each installed surface must have one implementation graph	commit e29ab069	focused tests green
+2026-09-14T13:05:09Z	adversarial review	fixed four release blockers	the review traced Wayfinder execution, direct ticketing, duplicate planning, and malformed recovery records	commit e29ab069	second review requested
+2026-09-14T13:08:04Z	adversarial review	accepted the final stack	two independent reviewers found no remaining release blockers	review sessions ses_f5fff249bffeQ02oUbcjT9bVH7 and ses_f5fff2433ffekMX5UDfbynVtC5	no blocking findings
+2026-09-14T13:08:04Z	verification	ran every repository test after the final review fix	the installed local and sandbox artifacts must match the source contract	test/*.sh	all 13 scripts passed
+2026-09-14T13:13:34Z	exact SHA review	verified the implementation tree before its identity rewrite	the review remains valid for the unchanged tree but not the rewritten commit ID	~/.lazar-harness/records/github.com/mauricedesaxe/lazar-harness/interrogate/20260914T130804Z-b255e7d40468.md	superseded by final PR-head review
