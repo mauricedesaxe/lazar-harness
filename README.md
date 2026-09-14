@@ -140,8 +140,8 @@ test/
 
 `pstack-poteto-mode` is the only router. Its Product shaping playbook sends vague ideas through
 Matt's human-led grilling and optional wayfinding. An approved tracker spec then enters a P stack
-implementation playbook. Multi-ticket work uses one tracker ticket graph or one Beads graph, never
-both.
+implementation playbook. The tracker keeps the product contract and product decisions. Multi-ticket
+work uses one tracker ticket graph or one sandbox Beads graph, never both.
 
 ## Enforcement
 
@@ -232,7 +232,7 @@ them. Which files those are is read off the files, so a skill that grows a block
 surface being installed all stop the run: each one otherwise ships silently, and the first truncates
 the file at the marker.
 
-Seven files use it today:
+Eight files use it today:
 
 - **`CLAUDE.md`** — which environment the agent runs in and which jj workspace to work in. `§28`
   states the isolation principle for both surfaces; only the default action differs, since a
@@ -246,6 +246,8 @@ Seven files use it today:
 - **`skills/lazar-ux-audit/SKILL.md`** — whether to use local browser tooling or the sandbox browser.
 - **`skills/pstack-poteto-mode/SKILL.md`** — whether standing programs route to Orchestrate. Local
   installs route the same work to Autonomous run or `pstack-figure-it-out`.
+- **`skills/pstack-poteto-mode/playbooks/product-shaping.md`** — whether approved multi-ticket work
+  becomes tracker tickets or enters Orchestrate from one approved spec.
 - **`skills/pstack-poteto-mode/playbooks/orchestrate.md`** — the local redirect or the sandbox
   coordinator procedure. The sandbox variant uses Beads for program tasks and dependencies only
   when the origin already has `refs/dolt/data` or the user asks for initialization. The image owns

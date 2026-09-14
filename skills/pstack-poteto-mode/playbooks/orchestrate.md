@@ -29,6 +29,28 @@ units. Finished work that never lands counts as zero.
 Open a todolist with the steps below copied in verbatim. Keep a skipped step with
 `skip: <reason>`.
 
+#### Admission from an approved tracker spec
+
+Orchestrate admits a standing program only from one approved tracker spec. The spec is the
+product contract. Read its full body and every comment. If it links a Wayfinder map, read the full
+map and the full body and resolution comments of every closed decision ticket that the spec needs.
+Follow nested links until each product decision that constrains the spec has one closed source issue.
+
+Explicit product approval is a tracker comment in the form `Approved-Spec-Body-SHA256: <hash>`.
+Recompute the current tracker body with the same procedure Product shaping used. For GitHub, use
+`gh issue view <spec-number> --json body | jq -cS . | sha256sum | cut -d ' ' -f1`. Use
+`shasum -a 256` in place of `sha256sum` when needed. Admit only when
+the newest approval marker equals the current hash. A later body edit makes the marker stale. Reject
+admission when the marker is absent or stale. Reject it when a required decision ticket remains open.
+Reject it when the map keeps in-scope work under `Not yet specified`. Send the program back to
+Product shaping with the exact unresolved decisions or fog. Product approval is the final start gate.
+Do not ask for another implementation approval after admission.
+
+The tracker owns the approved spec, approval comments, Wayfinder map, and decision tickets. Do not
+turn the spec into GitHub implementation tickets or copy a dependency graph there. Beads owns the
+one implementation task graph. It does not own product requirements, code, branch or PR state, or
+verification evidence.
+
 #### Ownership and durable state
 
 Use Beads only when the target repository's origin already has `refs/dolt/data` or the user
@@ -52,8 +74,9 @@ inference. If the user asked, run `bd init --skip-agents --skip-hooks` once. Run
 the first graph operation, then commit and push the resulting state.
 
 The root coordinator is the sole Beads writer. A Beads epic owns the program's task beads and
-dependency edges. Children receive immutable briefs with their bead IDs. They never create, update,
-close, or push beads. Do not use JSONL as a sync mechanism. Never force a Beads push.
+dependency edges. Record the approved spec and relevant decision issue links on the epic and each
+task bead. Children receive immutable briefs with their bead IDs. They never create, update, close,
+or push beads. Do not use JSONL as a sync mechanism. Never force a Beads push.
 
 GitHub and jj own branches, commits, bookmarks, PRs, merges, and stack order. Child-session tools
 own live session state. Beads does not own either. Existing Lazar records own verification evidence
@@ -88,6 +111,7 @@ Every child gets the complete brief. A missing field means the task is not ready
 
 ```text
 BEAD         task bead ID; epic bead ID
+SOURCE       approved spec URL and relevant closed decision issue URLs
 GOAL         one sentence with an outcome a stranger can execute
 SCOPE        paths allowed and forbidden; exclusive jj workspace or bookmark
 CONTEXT      files, PRs, and complete upstream reports needed by this task
@@ -101,9 +125,11 @@ REPORT       status, bead ID, child session ID, branch, head SHA, PR, verdict,
 STANDING     all program constraints, copied verbatim
 ```
 
-Collapse the template for a one-command task, but keep the bead ID, goal, scope, verification, and
-report shape. A dependency carries context, not only order. Paste the upstream result into the
-downstream brief because children cannot read sibling sessions. Never resume with a partial prompt.
+Collapse the template for a one-command task, but keep the bead ID, source, goal, scope,
+verification, and report shape. `SOURCE` preserves traceability to the product contract. `CONTEXT`
+still carries all material that the child needs to execute without another lookup. A dependency
+carries context, not only order. Paste the upstream result into the downstream brief because
+children cannot read sibling sessions. Never resume with a partial prompt.
 Start a fresh child with a consolidated brief when the scope changes.
 
 Audit one sampled brief per track during each wave. Do not gate the current wave on that audit. If
@@ -111,14 +137,19 @@ the brief fails, stop the next refill and fix the track coordinator's contract.
 
 #### Steps
 
-1. **Frame.** Write a countable done predicate. Quantify tasks, effort, expected PRs, and the
-   wall-clock budget. Name the tracks. If one agent can finish within the budget, use Autonomous run.
-   Send contested decomposition or an irreversible design choice through **pstack-arena** first.
+1. **Frame.** Apply the admission contract. Explore the current codebase, then derive a countable
+   done predicate and the implementation breakdown from the approved spec, its product sources, and
+   that exploration. Quantify tasks, effort, expected PRs, and the wall-clock budget. Name the tracks.
+   Worker briefs are execution artifacts, not copies of issue bodies. If one agent can finish within
+   the budget, use Autonomous run. Send contested decomposition or an irreversible design choice
+   through **pstack-arena** first.
 2. **Create durable state.** Confirm the remote Beads ref or the explicit initialization request. If
    the ref exists, run `bd bootstrap`, `bd dolt pull`, and `bd prime` before any graph command. Create
-   one epic with `bd create --type epic --title "<program>"`. Create task beads with
-   `bd create --type task --title "<task>" --parent <epic-id>`. Add each dependency with
-   `bd dep add <task-id> <prerequisite-id>`. Commit and push Dolt after this setup.
+   one epic with `bd create --type epic --title "<program>" --description "SOURCE <source-urls>"`.
+   Create the sole implementation graph as task beads with `bd create --type task --title "<task>"
+   --parent <epic-id> --description "SOURCE <relevant-source-urls>"`.
+   Add each dependency with `bd dep add <task-id> <prerequisite-id>`. Commit and push Dolt after this
+   setup.
 3. **Pilot.** Move one task through brief, worker, independent verification when needed, PR, exact-SHA
    verdict, and merge. Use `bd update <task-id> --status in_progress` before work. Record the child
    session ID with `bd update <task-id> --notes "child: <session-id>"`. Fix the task size and brief
@@ -194,9 +225,14 @@ exact resume command.
 
 #### Escalation
 
-Batch human gates. Ask only about irreversible actions, true product choices, a standing order that
-conflicts with observed facts, or a program dead end that survived a replan. Route other work around
-the gate.
+Batch human gates. Product approval of the admitted spec already authorized implementation. Ask
+only about irreversible actions, a real product decision that execution discovered, a standing order
+that conflicts with observed facts, or a program dead end that survived a replan. Route other work
+around the gate.
+
+When execution finds an unresolved product decision, create or reopen its tracker decision issue.
+Pause only the Beads tasks that depend on that decision. Keep independent tasks active. Resume the
+dependent tasks after Product shaping records and closes the decision.
 
 Do not ask about retries, CI triage, formatting, stack maintenance, or whether to continue. Fix only
 discoveries that block the merge frontier. Put other discoveries into follow-up task beads when they
