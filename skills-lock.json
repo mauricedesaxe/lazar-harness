@@ -107,13 +107,6 @@
       "skillPath": "apps/skills/core/plannotator-review/SKILL.md",
       "computedHash": "8b811a572b96c3dd08a944b3a6a5369bac32f08ea6a3e837c001cf4ed6235a14"
     },
-    "plannotator-setup-goal": {
-      "source": "backnotprop/plannotator",
-      "ref": "main",
-      "sourceType": "github",
-      "skillPath": "apps/skills/extra/plannotator-setup-goal/SKILL.md",
-      "computedHash": "514ee10638ba0aa245a67fffa65fceaf5983875bd57f3a074ae856e0d0702601"
-    },
     "plannotator-visual-explainer": {
       "source": "backnotprop/plannotator",
       "ref": "main",

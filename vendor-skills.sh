@@ -32,19 +32,25 @@ RAILWAY_UPSTREAM="railwayapp/railway-skills"
 RAILWAY_SKILL="use-railway"
 RAILWAY_LICENSE_URL="https://raw.githubusercontent.com/$RAILWAY_UPSTREAM/HEAD/LICENSE"
 
-# Plannotator's installer writes these names into roots the harness purges. Vendor the complete
-# published set so a harness install remains authoritative instead of deleting the integration.
+# Plannotator's installer writes these names into roots the harness purges. Vendor the selected
+# published skills so a harness install remains authoritative instead of deleting the integration.
+# Product shaping owns goal setup, so this set intentionally excludes plannotator-setup-goal.
 PLANNOTATOR_UPSTREAM="backnotprop/plannotator"
 PLANNOTATOR_CORE_SOURCE="https://github.com/$PLANNOTATOR_UPSTREAM/tree/main/apps/skills/core"
 PLANNOTATOR_EXTRA_SOURCE="https://github.com/$PLANNOTATOR_UPSTREAM/tree/main/apps/skills/extra"
 PLANNOTATOR_LICENSE_URL="https://raw.githubusercontent.com/$PLANNOTATOR_UPSTREAM/HEAD/LICENSE-MIT"
-PLANNOTATOR_SKILLS=(
+PLANNOTATOR_CORE_SKILLS=(
   plannotator-annotate
   plannotator-last
   plannotator-review
+)
+PLANNOTATOR_EXTRA_SKILLS=(
   plannotator-compound
-  plannotator-setup-goal
   plannotator-visual-explainer
+)
+PLANNOTATOR_SKILLS=(
+  "${PLANNOTATOR_CORE_SKILLS[@]}"
+  "${PLANNOTATOR_EXTRA_SKILLS[@]}"
 )
 
 # plannotator-visual-explainer delegates general-purpose output to this upstream skill.
@@ -106,10 +112,10 @@ fetch_plannotator_upstreams() {
   local into=$1 skill visual_into
   local plannotator_core_args=() plannotator_extra_args=()
 
-  for skill in "${PLANNOTATOR_SKILLS[@]:0:3}"; do plannotator_core_args+=(-s "$skill"); done
+  for skill in "${PLANNOTATOR_CORE_SKILLS[@]}"; do plannotator_core_args+=(-s "$skill"); done
   (cd -- "$into" && npx -y "$SKILLS_CLI" add "$PLANNOTATOR_CORE_SOURCE" -a claude-code --copy -y "${plannotator_core_args[@]}") >/dev/null ||
     die "the skills CLI failed to fetch Plannotator's core skills"
-  for skill in "${PLANNOTATOR_SKILLS[@]:3}"; do plannotator_extra_args+=(-s "$skill"); done
+  for skill in "${PLANNOTATOR_EXTRA_SKILLS[@]}"; do plannotator_extra_args+=(-s "$skill"); done
   (cd -- "$into" && npx -y "$SKILLS_CLI" add "$PLANNOTATOR_EXTRA_SOURCE" -a claude-code --copy -y "${plannotator_extra_args[@]}") >/dev/null ||
     die "the skills CLI failed to fetch Plannotator's extra skills"
 

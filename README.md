@@ -269,9 +269,10 @@ Five upstreams are vendored through the [`skills` CLI](https://skills.sh):
 [Matt Pocock's skills](https://github.com/mattpocock/skills) as `matt-*`,
 [Agents365-ai/tldraw-skill](https://github.com/Agents365-ai/tldraw-skill) as `lazar-tldraw`, and
 [railwayapp/railway-skills](https://github.com/railwayapp/railway-skills) as `use-railway`,
-[Plannotator](https://github.com/backnotprop/plannotator)'s six published skills, and
+five selected skills from [Plannotator](https://github.com/backnotprop/plannotator), and
 [nicobailon/visual-explainer](https://github.com/nicobailon/visual-explainer) as the visual
-dependency Plannotator delegates to.
+dependency Plannotator delegates to. The harness intentionally excludes `plannotator-setup-goal` because
+Product shaping owns that phase.
 Nothing here is hand-edited, so there is nothing to hand-merge and no local edits an update could
 lose. `lazar-tldraw` is the one exception. Its divergence lives in `patches/lazar-tldraw.patch`,
 re-applied on every run. Edit the vendored file and you have to run `--regen-patch`, or the next
@@ -342,7 +343,7 @@ the user while the model-facing skill route stays hidden.
 
 ### Upstream names that are interop surfaces
 
-Plannotator's six skills keep the names its installer writes. `visual-explainer` keeps the exact
+The selected Plannotator skills keep the names its installer writes. `visual-explainer` keeps the exact
 name `plannotator-visual-explainer` delegates to. Renaming either set would leave the external
 installer refilling one spelling while the harness shipped another.
 
@@ -422,6 +423,7 @@ bash test/comment-lint.sh
 bash test/complexity-lint.sh
 bash test/opencode-comment-lint.sh
 bash test/skills-manifest.sh
+bash test/plannotator-vendor.sh
 bash test/prefix-rewrite.sh
 bash test/tldraw-patch.sh
 bash test/model-invocation.sh
@@ -447,6 +449,8 @@ decision back out of its JSON. Synthetic, because the alternative is proving a m
 attempting the mutations it exists to stop. The two seams are separate on purpose: this one pins
 what the hook decides, and `install-smoke.sh` pins that `settings.json`'s matcher hands it the
 calls to decide on — a hook can be perfectly correct about a tool it is never asked about.
+
+`plannotator-vendor.sh` pins the selected core and extra sets. It also rejects positional source selection.
 
 `prefix-rewrite.sh` drives the vendor script's rename over a fixture, offline. It is the seam
 where the prefix is decided, so it is the seam that pins which `/name` is a reference to rewrite
