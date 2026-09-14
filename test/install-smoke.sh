@@ -724,6 +724,29 @@ else
   fail "no installed Matt skill dispatches to an unprefixed name:$dangling"
 fi
 
+for root in "$claude" "$opencode"; do
+  for name in wayfinder to-spec to-tickets; do
+    assert_not_contains "installed matt-$name has no absent setup command" \
+      '/setup-matt-pocock-skills' "$root/skills/matt-$name/SKILL.md"
+  done
+  assert_contains "installed matt-to-spec keeps drafts human-ready" \
+    'publish it to the project issue tracker as an unapproved draft' \
+    "$root/skills/matt-to-spec/SKILL.md"
+  assert_contains "installed matt-wayfinder requires a server-ordered claim identifier" \
+    'server-ordered unique identifier' "$root/skills/matt-wayfinder/SKILL.md"
+  assert_not_contains "installed matt-wayfinder does not treat assignment as an exclusive claim" \
+    'That assignee _is_ the claim' "$root/skills/matt-wayfinder/SKILL.md"
+  assert_contains "installed matt-prototype stops before production code" \
+    'Do not fold or lift untested prototype code into production.' \
+    "$root/skills/matt-prototype/SKILL.md"
+  assert_contains "installed Product shaping Matt leaves cannot route implementation" \
+    'It must not choose, start, or route implementation.' \
+    "$root/skills/matt-wayfinder/SKILL.md"
+  assert_not_contains "installed matt-handoff remains a general compaction utility" \
+    'It must not choose, start, or route implementation.' \
+    "$root/skills/matt-handoff/SKILL.md"
+done
+
 assert_agent_installs() {
   local name=$1
   local source_agent="$HARNESS_SOURCE/agents/$name.md"

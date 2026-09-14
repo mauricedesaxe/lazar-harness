@@ -6,6 +6,7 @@ LOCKFILE="$HARNESS_SOURCE/skills-lock.json"
 SKILLS_CLI="skills@1.5.15"
 UPSTREAM="mattpocock/skills"
 PREFIX="matt-"
+MATT_ADAPTATION="$HARNESS_SOURCE/patches/adapt-matt-product-shaping.py"
 
 # The second upstream. It is vendored as `lazar-` rather than `agents365-` because it does not
 # ship as-is: `patches/lazar-tldraw.patch` re-applies local divergence on top of it (see
@@ -66,8 +67,9 @@ VISUAL_EXPLAINER_LICENSE_URL="https://raw.githubusercontent.com/$VISUAL_EXPLAINE
 # the pstack pins already in skills-lock.json rather than recomputing or dropping them.
 PSTACK_UPSTREAM="cursor/plugins"
 
-# Matt's product-shaping skills remain leaves under pstack-poteto-mode, the only router. Engineering
-# lifecycle skills stay retired because pstack owns that flow.
+# Matt's planning skills remain model-reachable leaves under pstack-poteto-mode, the only router.
+# The local adaptation limits each planning leaf to its named stage. matt-handoff remains a general
+# compaction utility. Engineering lifecycle skills stay retired because pstack owns that flow.
 UPSTREAM_SKILLS=(
   handoff
   grilling
@@ -288,8 +290,18 @@ stage_plannotator_licenses() {
     "$VISUAL_EXPLAINER_LICENSE_URL" "$VISUAL_EXPLAINER_UPSTREAM"
 }
 
+apply_matt_adaptation() {
+  local skills_root=$1
+  [ -x "$MATT_ADAPTATION" ] || die "$MATT_ADAPTATION: no executable Matt adaptation"
+  python3 "$MATT_ADAPTATION" "$skills_root" "${UPSTREAM_SKILLS[@]}" ||
+    die "$MATT_ADAPTATION no longer matches $UPSTREAM. Upstream changed under an adapted region.
+Reconcile the transform against the new upstream, then re-run.
+Nothing has been written, so the existing matt-* vendor remains the last good version."
+}
+
 stage_matt_skills() {
   local from=$1 skill staged
+  apply_matt_adaptation "$from/.claude/skills"
   for skill in "${UPSTREAM_SKILLS[@]}"; do
     staged="$from/.claude/skills/$skill"
     [ -d "$staged" ] || die "$skill: the skills CLI installed no such skill"
