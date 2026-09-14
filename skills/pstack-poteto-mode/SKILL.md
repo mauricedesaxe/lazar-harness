@@ -137,6 +137,7 @@ many stacked PRs and a fleet of background children under one coordinator.
 <!-- /surface:sandbox -->
 
 - **Investigation.** Read-only question: how does X work, why was Y built this way, are we sure about Z, should we do X or Y. `playbooks/investigation.md`.
+- **Product shaping.** Human-led work that turns a vague idea into an approved spec before P stack implements it. Triggers include "shape this idea", "grill this", "grill with docs", "wayfind this", "turn this into a spec", and "split this into tickets". Explicit requests for one Matt stage enter that stage through this playbook. `playbooks/product-shaping.md`.
 - **Bug fix.** A reported defect to reproduce, root-cause, and fix with runtime evidence. `playbooks/bug-fix.md`.
 - **Perf issue.** A measured slowness to trace and improve against a baseline. `playbooks/perf-issue.md`.
 - **Hillclimb.** Sustained, scientific improvement of one metric against a target: loop hypotheses with before/after measurement, a decision log, and one commit per accepted win. Distinct from Perf issue, which is a one-off fix. `playbooks/hillclimb.md`.

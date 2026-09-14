@@ -133,9 +133,15 @@ test/
   comment-lint.sh           drives comment parsing, hooks, and diff reconstruction
   complexity-lint.sh        drives analyzer parsing and repository-local tool lookup
   install-smoke.sh          runs install.sh under a temp HOME, asserts the tree
+  product-shaping.sh        pins the product-shaping route and its single implementation graph
   enforce-jj.sh             drives the hook with synthetic PreToolUse payloads
   opencode-comment-lint.sh  drives the OpenCode plugin against a temporary HOME
 ```
+
+`pstack-poteto-mode` is the only router. Its Product shaping playbook sends vague ideas through
+Matt's human-led grilling and optional wayfinding. An approved tracker spec then enters a P stack
+implementation playbook. Multi-ticket work uses one tracker ticket graph or one Beads graph, never
+both.
 
 ## Enforcement
 
@@ -417,6 +423,7 @@ bash test/skills-manifest.sh
 bash test/prefix-rewrite.sh
 bash test/tldraw-patch.sh
 bash test/model-invocation.sh
+bash test/product-shaping.sh
 ```
 
 `install-smoke.sh` is one end-to-end pass: it runs the installer with `HOME` pointed at a temp
