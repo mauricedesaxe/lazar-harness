@@ -60,23 +60,32 @@ VISUAL_EXPLAINER_LICENSE_URL="https://raw.githubusercontent.com/$VISUAL_EXPLAINE
 # the pstack pins already in skills-lock.json rather than recomputing or dropping them.
 PSTACK_UPSTREAM="cursor/plugins"
 
-# The one Matt skill the harness still vendors. pstack-poteto-mode is the router, and its playbooks
-# and pstack-principle-* leaves cover the flow Matt's other skills used to, so the rest are retired.
-# `code-review` went out with lazar-review, and `codebase-design` and `diagnosing-bugs` went unused.
-# `handoff` stays for compaction, which nothing else covers.
+# Matt's product-shaping skills remain leaves under pstack-poteto-mode, the only router. Engineering
+# lifecycle skills stay retired because pstack owns that flow.
 UPSTREAM_SKILLS=(
   handoff
+  grilling
+  grill-me
+  grill-with-docs
+  domain-modeling
+  wayfinder
+  to-spec
+  to-tickets
+  research
+  prototype
+  to-questionnaire
 )
 
 usage() {
   cat >&2 <<'EOF'
-usage: vendor-skills.sh [--update | --update-plannotator | --regen-patch | --check-pstack-drift]
+usage: vendor-skills.sh [--update | --update-matt | --update-plannotator | --regen-patch | --check-pstack-drift]
 
   (no flags)            Re-vendor the set pinned in skills-lock.json. Fails if upstream has moved
                         away from the pinned content hashes. Carries the pstack pins through
                         unchanged; the skills CLI does not fetch pstack.
   --update              Pull every CLI-fetched upstream's current content and repin
                         skills-lock.json to it. Preserves the hand-maintained pstack pins.
+  --update-matt         Pull Matt's selected skills without changing any other upstream pin.
   --update-plannotator  Pull Plannotator and visual-explainer without changing the other pins.
   --regen-patch         Rebuild patches/lazar-tldraw.patch from the difference between pristine
                         upstream and the vendored skills/lazar-tldraw/SKILL.md. Run this after
@@ -119,12 +128,17 @@ fetch_plannotator_upstreams() {
 # Every upstream contributes to one final lockfile. The larger optional sets are fetched in an
 # independent directory because skills@1.5.15 silently drops existing lock entries when too many
 # independent upstreams are merged in one working directory.
-fetch_upstream() {
-  local into=$1 skill plannotator_into
+fetch_matt_upstream() {
+  local into=$1 skill
   local args=()
   for skill in "${UPSTREAM_SKILLS[@]}"; do args+=(-s "$skill"); done
   (cd -- "$into" && npx -y "$SKILLS_CLI" add "$UPSTREAM" -a claude-code --copy -y "${args[@]}") >/dev/null ||
     die "the skills CLI failed to fetch $UPSTREAM"
+}
+
+fetch_upstream() {
+  local into=$1 skill plannotator_into
+  fetch_matt_upstream "$into"
   (cd -- "$into" && npx -y "$SKILLS_CLI" add "$TLDRAW_UPSTREAM" -a claude-code --copy -y -s "$TLDRAW_SKILL") >/dev/null ||
     die "the skills CLI failed to fetch $TLDRAW_UPSTREAM"
   (cd -- "$into" && npx -y "$SKILLS_CLI" add "$RAILWAY_UPSTREAM" -a claude-code --copy -y -s "$RAILWAY_SKILL") >/dev/null ||
@@ -162,8 +176,8 @@ apply_prefix_to_frontmatter() {
 # Upstream locks most of its skills to hand-typed invocation with `disable-model-invocation: true`.
 # That guards against an agent spontaneously firing an expensive workflow, but it also makes the
 # skills unreachable from a spoken brain-dump: the agent can name the slash command it would have
-# run and nothing more. The four Matt skills the harness keeps are reached from the flow rather than
-# hand-typed, so the strip lets `pstack-poteto-mode` route to them without the human typing a slash.
+# run and nothing more. The selected Matt skills are leaves under pstack-poteto-mode, so the strip
+# lets the router reach them from natural language without requiring a slash command.
 #
 # Stripping the line here rather than in a patch keeps it stable across upstream edits near the
 # frontmatter, which the patch tool would refuse to fuzz through.
@@ -197,7 +211,7 @@ apply_prefix_to_references() {
   # shellcheck disable=SC2016 # $ENV{} is perl's, and must reach perl unexpanded
   find "$skill_dir" -type f -exec \
     env NAMES="$names" PREFIX="$PREFIX" perl -pi \
-    -e 's{(?<=[ `])/($ENV{NAMES})(?![\w/-])}{/$ENV{PREFIX}$1}g' {} + ||
+    -e 's{(?<=[ `])/($ENV{NAMES})(?![\w/-])}{/$ENV{PREFIX}$1}g; s{(\b[Ss]kill tool(?:\s+twice)?(?:,\s*for|\s+(?:with|for))\s*)(["`\x27])($ENV{NAMES})\2}{$1$2$ENV{PREFIX}$3$2}g; s{(\b[Ss]kill tool(?:\s+twice)?(?:,\s*for|\s+(?:with|for))\s*["`\x27](?:$ENV{PREFIX})?($ENV{NAMES})["`\x27]\s+and\s*)(["`\x27])($ENV{NAMES})\3}{$1$3$ENV{PREFIX}$4$3}g' {} + ||
     die "$skill_dir: rewriting cross-references failed"
 }
 
@@ -240,6 +254,14 @@ actual:
 $actual"
 }
 
+assert_matt_pinned_set() {
+  local fetched=$1 expected actual
+  expected=$(printf '%s\n' "${UPSTREAM_SKILLS[@]}" | LC_ALL=C sort)
+  actual=$(lockfile_skills "$fetched" | LC_ALL=C sort)
+  [ "$expected" = "$actual" ] ||
+    die "the skills CLI resolved a different Matt set than this script asked for"
+}
+
 assert_plannotator_pinned_set() {
   local fetched=$1 expected actual
   expected=$(printf '%s\n%s\n' "${PLANNOTATOR_SKILLS[*]}" "$VISUAL_EXPLAINER_SKILL" |
@@ -258,6 +280,27 @@ stage_plannotator_licenses() {
   done
   fetch_license "$into/.claude/skills/$VISUAL_EXPLAINER_SKILL" \
     "$VISUAL_EXPLAINER_LICENSE_URL" "$VISUAL_EXPLAINER_UPSTREAM"
+}
+
+stage_matt_skills() {
+  local from=$1 skill staged
+  for skill in "${UPSTREAM_SKILLS[@]}"; do
+    staged="$from/.claude/skills/$skill"
+    [ -d "$staged" ] || die "$skill: the skills CLI installed no such skill"
+    apply_prefix_to_frontmatter "$staged/SKILL.md" "$skill"
+    strip_model_invocation_lock "$staged/SKILL.md"
+    apply_prefix_to_references "$staged"
+  done
+}
+
+install_matt_skills() {
+  local from=$1 skill vendored
+  for vendored in "$HARNESS_SOURCE/skills/$PREFIX"*/; do
+    if [ -d "$vendored" ]; then rm -rf -- "$vendored"; fi
+  done
+  for skill in "${UPSTREAM_SKILLS[@]}"; do
+    mv -- "$from/.claude/skills/$skill" "$HARNESS_SOURCE/skills/$PREFIX$skill"
+  done
 }
 
 install_plannotator_skills() {
@@ -319,12 +362,13 @@ check_pstack_drift() {
 }
 
 main() {
-  local update=false update_plannotator=false regen=false check_drift=false skill staged vendored
+  local update=false update_matt=false update_plannotator=false regen=false check_drift=false skill
   local tldraw_staged railway_staged visual_explainer_staged
 
   case "${1-}" in
   "") ;;
   --update) update=true ;;
+  --update-matt) update_matt=true ;;
   --update-plannotator) update_plannotator=true ;;
   --regen-patch) regen=true ;;
   --check-pstack-drift) check_drift=true ;;
@@ -338,6 +382,24 @@ main() {
   fi
 
   staging=$(mktemp -d)
+
+  if [ "$update_matt" = true ]; then
+    [ -f "$LOCKFILE" ] || die "no skills-lock.json to update"
+    fetch_matt_upstream "$staging"
+    assert_matt_pinned_set "$staging/skills-lock.json"
+    stage_matt_skills "$staging"
+    jq --slurpfile updated "$staging/skills-lock.json" '
+      .skills = ($updated[0].skills + (.skills | with_entries(select(
+        .value.source != "mattpocock/skills"
+      ))))
+    ' "$LOCKFILE" >"$staging/skills-lock.combined.json" ||
+      die "merging Matt pins into $LOCKFILE failed"
+    install_matt_skills "$staging"
+    mv -- "$staging/skills-lock.combined.json" "$LOCKFILE"
+    printf 'vendored %d skills from %s as %s*\n' \
+      "${#UPSTREAM_SKILLS[@]}" "$UPSTREAM" "$PREFIX"
+    return 0
+  fi
 
   if [ "$update_plannotator" = true ]; then
     fetch_plannotator_upstreams "$staging"
@@ -399,13 +461,7 @@ main() {
       die "upstream has moved away from skills-lock.json; re-run with --update to repin"
   fi
 
-  for skill in "${UPSTREAM_SKILLS[@]}"; do
-    staged="$staging/.claude/skills/$skill"
-    [ -d "$staged" ] || die "$skill: the skills CLI installed no such skill"
-    apply_prefix_to_frontmatter "$staged/SKILL.md" "$skill"
-    strip_model_invocation_lock "$staged/SKILL.md"
-    apply_prefix_to_references "$staged"
-  done
+  stage_matt_skills "$staging"
 
   # Before anything is removed, so a rejected patch leaves the last good vendor in place.
   apply_local_patch "$tldraw_staged"
@@ -413,15 +469,10 @@ main() {
   fetch_license "$railway_staged" "$RAILWAY_LICENSE_URL" "$RAILWAY_UPSTREAM"
   stage_plannotator_licenses "$staging"
 
-  for vendored in "$HARNESS_SOURCE/skills/$PREFIX"*/; do
-    if [ -d "$vendored" ]; then rm -rf -- "$vendored"; fi
-  done
+  install_matt_skills "$staging"
   rm -rf -- "$HARNESS_SOURCE/skills/$TLDRAW_VENDORED" "$HARNESS_SOURCE/skills/$RAILWAY_SKILL" \
     "$HARNESS_SOURCE/skills/$VISUAL_EXPLAINER_SKILL"
 
-  for skill in "${UPSTREAM_SKILLS[@]}"; do
-    mv -- "$staging/.claude/skills/$skill" "$HARNESS_SOURCE/skills/$PREFIX$skill"
-  done
   mv -- "$tldraw_staged" "$HARNESS_SOURCE/skills/$TLDRAW_VENDORED"
   mv -- "$railway_staged" "$HARNESS_SOURCE/skills/$RAILWAY_SKILL"
   install_plannotator_skills "$staging"

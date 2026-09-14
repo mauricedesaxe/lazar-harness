@@ -584,10 +584,10 @@ case "${note_path#\~/}" in
 esac
 
 pinned=$(lockfile_skills)
-if [ "$(printf '%s\n' "$pinned" | grep -c .)" -eq 48 ]; then
-  pass "skills-lock.json pins all 48 vendored skills"
+if [ "$(printf '%s\n' "$pinned" | grep -c .)" -eq 58 ]; then
+  pass "skills-lock.json pins all 58 vendored skills"
 else
-  fail "skills-lock.json pins all 48 vendored skills"
+  fail "skills-lock.json pins all 58 vendored skills"
 fi
 
 # pstack is a hand-maintained fork, not a CLI-fetched vendor, so its pins carry a pristine-upstream
@@ -685,10 +685,13 @@ fi
 
 # A body that still says `/code-review` dispatches to Claude Code's built-in, so the prefix has
 # to hold across the cross-references too, not just the directory and the frontmatter.
-reference='[ `]/('"$(printf '%s' "$matt_pinned" | paste -sd '|' -)"')([^A-Za-z0-9/-]|$)'
+matt_names=$(printf '%s' "$matt_pinned" | paste -sd '|' -)
+slash_reference='[ `]/('"$matt_names"')([^A-Za-z0-9/-]|$)'
+skill_tool_reference='[Ss]kill tool.*"('"$matt_names"')"'
 dangling=""
 for root in "$claude" "$opencode"; do
-  dangling="$dangling $(grep -rlE "$reference" "$root/skills"/matt-*/)"
+  dangling="$dangling $(grep -rlE "$slash_reference|$skill_tool_reference" \
+    "$root/skills"/matt-*/)"
 done
 
 if [ -z "${dangling// /}" ]; then

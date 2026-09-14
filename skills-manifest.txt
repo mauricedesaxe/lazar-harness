@@ -6,7 +6,17 @@ lazar-ship
 lazar-standup
 lazar-tldraw
 lazar-ux-audit
+matt-domain-modeling
+matt-grill-me
+matt-grill-with-docs
+matt-grilling
 matt-handoff
+matt-prototype
+matt-research
+matt-to-questionnaire
+matt-to-spec
+matt-to-tickets
+matt-wayfinder
 plannotator-annotate
 plannotator-compound
 plannotator-last
