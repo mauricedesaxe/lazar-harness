@@ -21,7 +21,6 @@ plannotator-annotate
 plannotator-compound
 plannotator-last
 plannotator-review
-plannotator-setup-goal
 plannotator-visual-explainer
 pstack-architect
 pstack-arena

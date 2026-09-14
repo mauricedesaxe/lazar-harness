@@ -454,25 +454,33 @@ plannotator_pinned=$(jq -r \
   '.skills | to_entries[] | select(.value.source == "backnotprop/plannotator") | .key' \
   "$HARNESS_SOURCE/skills-lock.json")
 plannotator_missing=""
+plannotator_different=""
 while IFS= read -r name; do
   for root in "$claude" "$opencode"; do
-    [ -f "$root/skills/$name/SKILL.md" ] ||
-      plannotator_missing="$plannotator_missing $root/skills/$name/SKILL.md"
+    installed_plannotator="$root/skills/$name"
+    [ -f "$installed_plannotator/SKILL.md" ] ||
+      plannotator_missing="$plannotator_missing $installed_plannotator/SKILL.md"
+    [ -f "$installed_plannotator/LICENSE" ] ||
+      plannotator_missing="$plannotator_missing $installed_plannotator/LICENSE"
+    diff -qr -- "$HARNESS_SOURCE/skills/$name" "$installed_plannotator" >/dev/null ||
+      plannotator_different="$plannotator_different $installed_plannotator"
   done
 done <<<"$plannotator_pinned"
 
-if [ -z "${plannotator_missing// /}" ] && [ "$(printf '%s\n' "$plannotator_pinned" | grep -c .)" -eq 6 ]; then
-  pass "all six pinned Plannotator skills install to both runtimes"
+if [ -z "${plannotator_missing// /}" ] && [ -z "${plannotator_different// /}" ] &&
+  [ "$(printf '%s\n' "$plannotator_pinned" | grep -c .)" -eq 5 ]; then
+  pass "all five selected Plannotator skills install with licenses and supporting files"
 else
-  fail "all six pinned Plannotator skills install to both runtimes:$plannotator_missing"
+  fail "all five selected Plannotator skills install with licenses and supporting files:$plannotator_missing$plannotator_different"
 fi
 
-assert_same_file "Plannotator supporting files travel with the skills" \
-  "$HARNESS_SOURCE/skills/plannotator-visual-explainer/references/design-system.md" \
-  "$claude/skills/plannotator-visual-explainer/references/design-system.md"
-assert_same_file "Plannotator's MIT licence travels with its skills" \
-  "$HARNESS_SOURCE/skills/plannotator-annotate/LICENSE" \
-  "$opencode/skills/plannotator-annotate/LICENSE"
+for root in "$claude" "$opencode"; do
+  if [ -e "$root/skills/plannotator-setup-goal" ]; then
+    fail "plannotator-setup-goal is absent from ${root##*/}"
+  else
+    pass "plannotator-setup-goal is absent from ${root##*/}"
+  fi
+done
 assert_same_file "visual-explainer installs to Claude Code" \
   "$HARNESS_SOURCE/skills/visual-explainer/SKILL.md" \
   "$claude/skills/visual-explainer/SKILL.md"
@@ -600,10 +608,10 @@ case "${note_path#\~/}" in
 esac
 
 pinned=$(lockfile_skills)
-if [ "$(printf '%s\n' "$pinned" | grep -c .)" -eq 58 ]; then
-  pass "skills-lock.json pins all 58 vendored skills"
+if [ "$(printf '%s\n' "$pinned" | grep -c .)" -eq 57 ]; then
+  pass "skills-lock.json pins all 57 vendored skills"
 else
-  fail "skills-lock.json pins all 58 vendored skills"
+  fail "skills-lock.json pins all 57 vendored skills"
 fi
 
 # pstack is a hand-maintained fork, not a CLI-fetched vendor, so its pins carry a pristine-upstream
@@ -882,12 +890,13 @@ done
 
 # The skills footprint lets an upgrade distinguish a retired harness skill from a foreign skill.
 for root in "$claude" "$opencode"; do
-  mkdir -p -- "$root/skills/lazar-review"
+  mkdir -p -- "$root/skills/lazar-review" "$root/skills/plannotator-setup-goal"
   printf -- '---\nname: lazar-review\n---\n' >"$root/skills/lazar-review/SKILL.md"
+  printf -- '---\nname: plannotator-setup-goal\n---\n' >"$root/skills/plannotator-setup-goal/SKILL.md"
   rm -f -- "$root/skills/.lazar-harness-installed-skills"
 done
 mkdir -p -- "$TEST_HOME/.lazar-harness"
-printf 'lazar-review\n' >>"$TEST_HOME/.lazar-harness/installed-skills"
+printf 'lazar-review\nplannotator-setup-goal\n' >>"$TEST_HOME/.lazar-harness/installed-skills"
 
 # A skill another tool installed and marked as its own is not the harness's to purge. Seeded the way
 # Newsjack leaves it, a directory with a `.newsjack-installed` marker, and absent from the footprint,
@@ -1127,7 +1136,10 @@ run_installer "$TEST_HOME" >/dev/null || fail "the installer recovers once setti
 
 stale_skill=""
 for root in "$claude" "$opencode"; do
-  [ -e "$root/skills/lazar-review" ] && stale_skill="$stale_skill $root/skills/lazar-review"
+  for retired_skill in lazar-review plannotator-setup-goal; do
+    [ -e "$root/skills/$retired_skill" ] &&
+      stale_skill="$stale_skill $root/skills/$retired_skill"
+  done
 done
 
 if [ -z "${stale_skill// /}" ]; then
