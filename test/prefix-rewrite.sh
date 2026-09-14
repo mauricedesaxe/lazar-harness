@@ -40,6 +40,10 @@ The handler lives in src/handoff/handler.ts, per `docs/agents/handoff-labels.md`
 The throwaway route under `/handoff/<name>` mounts the same switcher.
 A retired skill keeps its bare name: /code-review and `/diagnosing-bugs` stay put.
 Deploy it with `/use-railway`, then check /use-railway for the logs.
+Call the Skill tool twice, for "grilling" and "domain-modeling".
+Then call the Skill tool with "research" and `prototype`.
+The glossary labels "research" as an investigation type.
+A retired dispatch says to call the Skill tool with "implement".
 EOF
 
 # A skill body is not always markdown. A skill that ships a `template.sh` naming a slash command
@@ -58,6 +62,14 @@ assert_contains "a bare reference is prefixed" 'use /matt-handoff to compact'
 assert_contains "a reference in the frontmatter description is prefixed" \
   'Hand off to /matt-handoff when done'
 assert_contains "a reference whose name also appears in paths is prefixed" '`/matt-handoff` first'
+assert_contains "two quoted Skill tool dispatches are prefixed" \
+  'Call the Skill tool twice, for "matt-grilling" and "matt-domain-modeling"'
+assert_contains "a single quoted Skill tool dispatch is prefixed" \
+  'call the Skill tool with "matt-research" and `matt-prototype`'
+assert_contains "a quoted skill label outside dispatch prose is left alone" \
+  'The glossary labels "research" as an investigation type'
+assert_contains "a non-vendored Skill tool dispatch is left alone" \
+  'call the Skill tool with "implement"'
 
 assert_contains "a built-in Claude Code command is left alone" 'Run `/compact` when'
 assert_contains "a path ending in a skill name is left alone" 'src/handoff/handler.ts'

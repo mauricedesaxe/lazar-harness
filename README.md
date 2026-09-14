@@ -121,7 +121,7 @@ skills/
   lazar-tldraw/             talk → tldraw canvas: diagrams + low-fi wireframes (vendored)
   lazar-ux-audit/           browser-driven UI and UX review against §34
   pstack-*/                 the engineering layer: poteto-mode router, playbooks, principle leaves (forked, see below)
-  matt-*/                   Matt Pocock's four kept skills, vendored (see below)
+  matt-*/                   Matt Pocock's product-shaping skills, vendored (see below)
   use-railway/              Railway ops, vendored — unprefixed on purpose (see below)
                             all are generated — edit the upstream or the patch, not the file
 docs/
@@ -270,7 +270,8 @@ re-applied on every run. Edit the vendored file and you have to run `--regen-pat
 vendor reverts the edit:
 
 ```sh
-./vendor-skills.sh --update    # pull upstream's current content and repin the lockfile
+./vendor-skills.sh --update    # pull every upstream's current content and repin the lockfile
+./vendor-skills.sh --update-matt  # update Matt without moving unrelated pins
 ./vendor-skills.sh --update-plannotator  # update Plannotator without moving unrelated pins
 ./vendor-skills.sh             # re-vendor exactly what the lockfile pins, or fail
 ./vendor-skills.sh --regen-patch   # rebuild patches/lazar-tldraw.patch from an edited lazar-tldraw
@@ -287,26 +288,23 @@ The harness owns Plannotator's skill definitions, not its executable or runtime 
 the `plannotator` binary separately on machines that invoke these skills. Sandbox images need the
 same binary before the skills can run there.
 
-The four Matt skills the harness still vendors are renamed `matt-<name>` on the way in — the
-directory, the `name:` frontmatter, and the `/name` cross-references the prose dispatches through.
-The rest of Matt's set is retired now that pstack is the engineering layer (see below), so
-`handoff` is the only one still vendored. The prefix stays load-bearing anyway: upstream ships
-`code-review`, and a skill installed under its own name would silently replace a built-in of the
-same name, so every vendored skill takes the prefix rather than only the ones that collide today.
+The selected Matt product-shaping skills are renamed `matt-<name>` on the way in. The rename
+covers the directory, the `name:` frontmatter, slash dispatches, and quoted Skill tool dispatches.
+`pstack-poteto-mode` remains the only router. Matt's engineering lifecycle skills stay retired.
+The prefix stays load-bearing because an unprefixed skill can silently replace another skill.
 
 That makes the vendored prose diverge from upstream, which is a bug everywhere except here: the
 rename is a step of the vendor script, re-derived from scratch on every run and never
-hand-maintained, so it survives each future update without anyone remembering it. Only the four
-vendored names are rewritten, so Claude Code's own `/compact` still means `/compact`, and only
-where a reference and not a path is being written, so `docs/agents/handoff-labels.md` and the
-route `/code-review/<name>` are left alone. Every file in a skill is rewritten, not the markdown
-alone: a skill that ships a `template.sh` naming a slash command needs the rewrite there too.
+hand-maintained, so it survives each future update without anyone remembering it. Only selected
+vendored names are rewritten, so Claude Code's own `/compact` stays unchanged. The transform also
+leaves paths, labels, and unrelated quoted prose alone. Every file in a skill
+is rewritten, not only markdown. A supporting script can dispatch a skill too.
 
 ### The invocation lock, stripped
 
 Upstream ships most of its skills with `disable-model-invocation: true`, which makes them
-reachable only by a hand-typed slash command. The vendor removes that line from the four it keeps,
-and the pstack fork ships its skills already unlocked.
+reachable only by a hand-typed slash command. The vendor removes that line from the selected Matt
+skills, and the pstack fork ships its skills already unlocked.
 
 The flag guards against an agent spontaneously firing an expensive workflow, which is a real
 concern and not the one that bites here. The cost lands on voice-to-text: the agent can name the

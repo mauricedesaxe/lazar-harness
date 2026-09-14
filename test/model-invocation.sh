@@ -115,6 +115,20 @@ strip_model_invocation_lock "$fixture/SKILL.md"
 
 assert_contains "an explicit false is preserved" "disable-model-invocation: false"
 
+# Every selected Matt skill must stay model-reachable after vendoring. The router cannot call a
+# locked leaf from natural language, even when its name and directory are correct.
+for skill in "${UPSTREAM_SKILLS[@]}"; do
+  vendored="$HARNESS_SOURCE/skills/$PREFIX$skill/SKILL.md"
+  if [ ! -f "$vendored" ]; then
+    fail "$PREFIX$skill exists for the model-invocation check"
+  elif sed -n '/^---$/,/^---$/p' "$vendored" | \
+    grep -q '^disable-model-invocation:[[:space:]]*true[[:space:]]*$'; then
+    fail "$PREFIX$skill is model-reachable from pstack-poteto-mode"
+  else
+    pass "$PREFIX$skill is model-reachable from pstack-poteto-mode"
+  fi
+done
+
 if [ "$failures" -eq 0 ]; then
   printf '\nall model-invocation assertions passed\n'
 else
