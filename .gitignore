@@ -7,3 +7,6 @@
 .beads/proxieddb/
 
 __pycache__/
+
+# harness-check build output
+/harness-check

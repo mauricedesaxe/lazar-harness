@@ -1,0 +1,42 @@
+name: Go checks
+
+on:
+  pull_request:
+    paths:
+      - "cmd/**"
+      - "internal/**"
+      - "lint-baselines/**"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "cmd/**"
+      - "internal/**"
+      - "lint-baselines/**"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+      - name: gofmt
+        run: test -z "$(gofmt -l cmd internal)"
+      - name: vet
+        run: go vet ./...
+      - name: test
+        run: go test -race ./...
+      - name: build
+        run: go build ./cmd/harness-check
