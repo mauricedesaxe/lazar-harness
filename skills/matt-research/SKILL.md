@@ -3,6 +3,10 @@ name: matt-research
 description: Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent.
 ---
 
+## Stage boundary
+
+This Matt leaf performs only its named stage. It must not choose, start, or route implementation. Product shaping passes product decisions to P stack.
+
 Spin up a **background agent** to do the research, so you keep working while it reads.
 
 Its job:

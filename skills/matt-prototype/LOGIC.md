@@ -21,7 +21,7 @@ Before writing code, write down what state model and what question you're protot
 
 ### 2. Isolate the logic in a portable module
 
-Put the actual logic (the bit that's answering the question) in a single `<script>` block written as a small, pure module that could be lifted out and dropped into the real codebase later. The page around it is throwaway; this module isn't.
+Put the actual logic (the bit that's answering the question) in a single `<script>` block written as a small, pure module. Keep the page around it thin so the prototype isolates the decision under test. The full prototype remains throwaway evidence.
 
 The right shape depends on the question:
 
@@ -30,7 +30,7 @@ The right shape depends on the question:
 - **A small set of pure functions** over a plain data type. Good when there's no implicit current state, just transformations.
 - **A class or module with a clear method surface** when the logic genuinely owns ongoing internal state.
 
-Pick whichever shape best fits the question being asked, *not* whichever is easiest to wire to a page. Keep it pure: no DOM, no `document`, no button handlers reaching inside it. The page calls into it; nothing flows the other direction. This is what makes the prototype useful past its own lifetime: once the question's answered, the validated reducer / machine / function set lifts into the real module on its own.
+Pick whichever shape best fits the question being asked, *not* whichever is easiest to wire to a page. Keep it pure: no DOM, no `document`, no button handlers reaching inside it. The page calls into it; nothing flows the other direction. This keeps the decision clear when P stack later rewrites and tests the production module.
 
 ### 3. Build the shareable HTML file
 
@@ -55,13 +55,13 @@ Send them the file, or open it for them. They'll click through the walkthroughs 
 
 ### 5. Capture the answer and the prototype
 
-Once the prototype has answered its question, capture the answer, then capture the prototype the way the [SKILL](SKILL.md) describes. The logic-specific mapping: the validated reducer / machine / function set lifts into the real module (the decision, absorbed); the HTML shell rides along to the throwaway branch that keeps the prototype as a primary source, and being one self-contained file, it stays trivially re-runnable there.
+Once the prototype has answered its question, capture the answer and the prototype pointer as the [SKILL](SKILL.md) describes, then stop. Keep the self-contained HTML file on the throwaway branch as a re-runnable primary source. Do not lift its reducer, machine, functions, or shell into production. After spec approval, Product shaping passes the decision and pointer to P stack. P stack rewrites and tests the production logic.
 
 ## Anti-patterns
 
 - **Don't add tests.** A prototype that needs tests is no longer a prototype.
 - **Don't wire it to the real database.** Use in-memory state unless the question is specifically about persistence.
 - **Don't generalise.** No "what if we wanted to support X later." The prototype answers one question.
-- **Don't blur the logic and the page together.** If the pure module references the DOM, `document`, or button handlers, it's no longer liftable. Keep the page as a thin shell over a pure module.
+- **Don't blur the logic and the page together.** If the pure module references the DOM, `document`, or button handlers, the prototype no longer isolates the decision. Keep the page as a thin shell over a pure module.
 - **Don't reach for a framework, bundler, or server.** One file the recipient double-clicks; a React app or a dev server defeats "shareable".
-- **Don't ship the HTML shell into production.** The page is optimised for being clicked through by hand. The logic module behind it is the bit worth keeping.
+- **Don't ship prototype code into production.** The page and logic module were written for manual exploration. P stack rewrites and tests the production logic after spec approval.

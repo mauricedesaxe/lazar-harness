@@ -6,6 +6,10 @@ router="$HARNESS_SOURCE/skills/pstack-poteto-mode/SKILL.md"
 playbook="$HARNESS_SOURCE/skills/pstack-poteto-mode/playbooks/product-shaping.md"
 orchestrate="$HARNESS_SOURCE/skills/pstack-poteto-mode/playbooks/orchestrate.md"
 tracker="$HARNESS_SOURCE/docs/agents/issue-tracker.md"
+wayfinder="$HARNESS_SOURCE/skills/matt-wayfinder/SKILL.md"
+to_spec="$HARNESS_SOURCE/skills/matt-to-spec/SKILL.md"
+to_tickets="$HARNESS_SOURCE/skills/matt-to-tickets/SKILL.md"
+prototype="$HARNESS_SOURCE/skills/matt-prototype"
 failures=0
 
 pass() { printf 'ok   %s\n' "$1"; }
@@ -52,6 +56,16 @@ assert_contains "Product shaping hashes the current tracker body" \
   'gh issue view <spec-number> --json body | jq -cS .' "$playbook"
 assert_contains "Product shaping starts only after the marker exists" \
   'Do not start implementation before the marker exists.' "$playbook"
+assert_contains "Product shaping publishes an unapproved draft for a human" \
+  'Publish the unapproved draft on the resolved tracker as `ready-for-human`, or leave it unlabeled.' "$playbook"
+assert_contains "Product shaping forbids premature agent readiness" \
+  'Never apply `ready-for-agent` to an unapproved draft.' "$playbook"
+assert_contains "Product shaping applies agent readiness only after the marker" \
+  'Only after the marker exists may Product shaping replace `ready-for-human` with `ready-for-agent`.' "$playbook"
+assert_contains "Product shaping keeps Matt leaves stage-bound" \
+  'A Product shaping Matt leaf shapes only its named stage.' "$playbook"
+assert_contains "Product shaping keeps natural-language Matt reachability" \
+  'Natural-language reachability stays enabled.' "$playbook"
 assert_contains "Product shaping routes one bounded feature to Feature" \
   'Route one bounded feature to **Feature**.' "$playbook"
 assert_contains "Product shaping routes standing sandbox programs to Orchestrate" \
@@ -107,7 +121,7 @@ assert_contains "Orchestrate pauses only tasks that depend on a new decision" \
   'Pause only the Beads tasks that depend on that decision.' "$orchestrate"
 
 for operation in 'wayfinder:map' '/sub_issues' '/dependencies/blocked_by' \
-  '--add-assignee @me' 'gh issue close' 'Decisions so far'; do
+  'gh issue close' 'Decisions so far'; do
   assert_contains "the GitHub tracker documents $operation" "$operation" "$tracker"
 done
 assert_contains "the tracker distinguishes database IDs from issue numbers" \
@@ -124,6 +138,40 @@ assert_contains "the tracker invalidates approval after a body edit" \
   'Any later body edit invalidates the marker.' "$tracker"
 assert_not_contains "Product shaping never routes to the absent setup skill" \
   '/setup-matt-pocock-skills' "$playbook"
+
+for tracker_leaf in "$wayfinder" "$to_spec" "$to_tickets"; do
+  assert_not_contains "$(basename -- "$(dirname -- "$tracker_leaf")") has no absent setup command" \
+    '/setup-matt-pocock-skills' "$tracker_leaf"
+done
+assert_contains "matt-to-spec publishes an unapproved draft" \
+  'publish it to the project issue tracker as an unapproved draft' "$to_spec"
+assert_contains "matt-to-spec reserves agent readiness for the approval marker" \
+  'may apply `ready-for-agent` only after the approved-body marker exists' "$to_spec"
+assert_not_contains "matt-to-spec has no premature ready-for-agent instruction" \
+  'Apply the `ready-for-agent` triage label - no need for additional triage.' "$to_spec"
+assert_contains "matt-wayfinder requires a server-ordered unique claim identifier" \
+  'server-ordered unique identifier' "$wayfinder"
+assert_not_contains "matt-wayfinder does not make the assignee the claim" \
+  'That assignee _is_ the claim' "$wayfinder"
+assert_not_contains "matt-wayfinder does not claim through assignment alone" \
+  'assign it to yourself before any work' "$wayfinder"
+assert_contains "matt-prototype stops before production code" \
+  'Do not fold or lift untested prototype code into production.' "$prototype/SKILL.md"
+assert_contains "the UI prototype stops before production code" \
+  'Do not fold or promote a variant into production.' "$prototype/UI.md"
+assert_contains "the logic prototype stops before production code" \
+  'Do not lift its reducer, machine, functions, or shell into production.' "$prototype/LOGIC.md"
+
+for vendored in "$HARNESS_SOURCE"/skills/matt-*/SKILL.md; do
+  name=$(basename -- "$(dirname -- "$vendored")")
+  if [ "$name" = matt-handoff ]; then
+    assert_not_contains "matt-handoff remains a general compaction utility" \
+      'It must not choose, start, or route implementation.' "$vendored"
+  else
+    assert_contains "$name cannot route implementation" \
+      'It must not choose, start, or route implementation.' "$vendored"
+  fi
+done
 
 for retired in matt-ask-matt matt-implement; do
   if [ -e "$HARNESS_SOURCE/skills/$retired" ]; then
