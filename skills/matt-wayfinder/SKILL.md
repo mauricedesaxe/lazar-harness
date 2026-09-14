@@ -67,7 +67,7 @@ Each ticket is a **child issue** of the map; the tracker's issue id is its ident
 
 Each ticket carries a `wayfinder:<type>` label, one of `research`, `prototype`, `grilling`, `task` (see [Ticket Types](#ticket-types)).
 
-A session **claims** a ticket through the resolved tracker contract, **first**, before any work. The claim needs a server-ordered unique identifier that concurrent sessions can compare. An assignee may identify the worker, but assignment alone is not an exclusive claim. The tracker contract defines the claim operation and how a losing session skips the ticket.
+A session **claims** a ticket through the resolved tracker contract, **first**, before any work. Post `Wayfinder-Claim: <session-unique-id>`, then fetch every exact claim comment in server order. Continue only when this session owns the earliest valid claim. A released claim is not valid. An assignee may identify the worker, but assignment alone is not an exclusive claim. A losing session releases its own claim, skips the ticket, and refreshes the frontier.
 
 Blocking uses the tracker's **native** dependency relationship: essential because it renders the frontier _visually_ in the tracker's own UI, so the human sees what's takeable without opening the map. Only a tracker that lacks native blocking falls back to a body convention. A ticket is **unblocked** when every ticket blocking it is closed; the **frontier** is the open, unblocked, unclaimed children, the edge of the known.
 
@@ -123,9 +123,9 @@ User invokes with a loose idea.
 User invokes with a map (URL or number). A ticket is **optional**: without one, you pick the next decision, not the user.
 
 1. Load the **map**: the low-res view, not every ticket body.
-2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it** through the resolved tracker contract before any work, and continue only if this session owns the server-ordered unique claim identifier.
+2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it** through the resolved tracker contract before any work. Continue only if this session owns the earliest valid `Wayfinder-Claim: <id>` comment in server order. If this session loses, release its claim, skip the ticket, and refresh the frontier.
 3. Resolve it. **Zoom as needed**: fetch the full body of any related or closed ticket on demand; call the Skill tool for whichever skills the `## Notes` block names. If in doubt, call the Skill tool twice, for "matt-grilling" and "matt-domain-modeling".
-4. Record the resolution: post the answer as a **resolution comment**, **close** the issue, and **append a context pointer** to the map's Decisions-so-far.
+4. Record the resolution: post a non-empty answer whose first line is `Wayfinder-Resolution:`, close the issue with reason `completed`, and append a context pointer to the map's Decisions-so-far.
 5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals that a ticket (this one or another) sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
 
 The user may run unblocked tickets in parallel, so expect other sessions to be editing the tracker concurrently.

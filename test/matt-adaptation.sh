@@ -30,6 +30,8 @@ name: wayfinder
 A session **claims** a ticket by assigning it to the dev driving the map, **first**, before any work, so concurrent sessions skip it. That assignee _is_ the claim: an open, unassigned ticket is unclaimed.
 
 2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it**: assign it to yourself before any work.
+
+4. Record the resolution: post the answer as a **resolution comment**, **close** the issue, and **append a context pointer** to the map's Decisions-so-far.
 EOF
   cat >"$root/to-spec/SKILL.md" <<'EOF'
 ---
@@ -39,6 +41,10 @@ name: to-spec
 The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
 3. Write the spec using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
+
+<spec-template>
+
+## Problem Statement
 EOF
   cat >"$root/to-tickets/SKILL.md" <<'EOF'
 ---
@@ -102,18 +108,32 @@ else
   pass "the adapted tracker-aware leaves contain no absent setup command"
 fi
 
-if grep -qF 'publish it to the project issue tracker as an unapproved draft' "$work/pristine/to-spec/SKILL.md" &&
+if grep -qF 'publish the spec to the project issue tracker as an unapproved draft' "$work/pristine/to-spec/SKILL.md" &&
   grep -qF 'may apply `ready-for-agent` only after the approved-body marker exists' "$work/pristine/to-spec/SKILL.md"; then
   pass "the adapted spec stays human-ready until approval is recorded"
 else
   fail "the adapted spec stays human-ready until approval is recorded"
 fi
 
-if grep -qF 'server-ordered unique identifier' "$work/pristine/wayfinder/SKILL.md" &&
+if grep -qF 'Wayfinder-Claim: <session-unique-id>' "$work/pristine/wayfinder/SKILL.md" &&
+  grep -qF 'A losing session releases its own claim' "$work/pristine/wayfinder/SKILL.md" &&
   ! grep -qF 'That assignee _is_ the claim' "$work/pristine/wayfinder/SKILL.md"; then
   pass "the adapted Wayfinder delegates exclusive claim mechanics to the tracker"
 else
   fail "the adapted Wayfinder delegates exclusive claim mechanics to the tracker"
+fi
+
+if grep -qF 'whose first line is `Wayfinder-Resolution:`' "$work/pristine/wayfinder/SKILL.md"; then
+  pass "the adapted Wayfinder records a checkable resolution"
+else
+  fail "the adapted Wayfinder records a checkable resolution"
+fi
+
+if grep -qF '## Product sources' "$work/pristine/to-spec/SKILL.md" &&
+  grep -qF 'If Wayfinder produced the source material' "$work/pristine/to-spec/SKILL.md"; then
+  pass "the adapted spec links its Wayfinder map"
+else
+  fail "the adapted spec links its Wayfinder map"
 fi
 
 if grep -qF 'Do not fold or lift untested prototype code into production' "$work/pristine/prototype/SKILL.md" &&

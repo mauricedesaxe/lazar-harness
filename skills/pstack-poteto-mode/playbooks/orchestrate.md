@@ -31,20 +31,40 @@ Open a todolist with the steps below copied in verbatim. Keep a skipped step wit
 
 #### Admission from an approved tracker spec
 
-Orchestrate admits a standing program only from one approved tracker spec. The spec is the
-product contract. Read its full body and every comment. If it links a Wayfinder map, read the full
-map and the full body and resolution comments of every closed decision ticket that the spec needs.
-Follow nested links until each product decision that constrains the spec has one closed source issue.
+Orchestrate admits a standing program only from one approved tracker spec. The spec is the product
+contract. Read its full body and every comment.
 
-Explicit product approval is a tracker comment in the form `Approved-Spec-Body-SHA256: <hash>`.
-Recompute the current tracker body with the same procedure Product shaping used. For GitHub, use
-`gh issue view <spec-number> --json body | jq -cS . | sha256sum | cut -d ' ' -f1`. Use
-`shasum -a 256` in place of `sha256sum` when needed. Admit only when
-the newest approval marker equals the current hash. A later body edit makes the marker stale. Reject
-admission when the marker is absent or stale. Reject it when a required decision ticket remains open.
-Reject it when the map keeps in-scope work under `Not yet specified`. Send the program back to
-Product shaping with the exact unresolved decisions or fog. Product approval is the final start gate.
-Do not ask for another implementation approval after admission.
+For GitHub, resolve one repository with
+`repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)`. Pass `-R "$repo"` to every issue
+command. Use `repos/$repo/...` for every API path. Keep the target repository as the current
+directory. Invoke `<absolute-installed-skill-path>/scripts/spec-body-hash.sh <spec-number>`. A helper
+failure rejects admission. Fetch every spec
+comment in server order. The newest exact `Approved-Spec-Body-SHA256: <hash>` marker must equal the
+current hash. A missing or stale marker rejects admission.
+
+A spec from Wayfinder must contain a `## Product sources` section that links its map. Reject a mapped
+spec when the link is absent from that section. Keep bounded specs without a map valid. For a linked
+map, query all native sub-issues with the paginated `sub_issues` API. Use every linked checklist child
+under `## Decision issues` only when the native endpoint is unavailable. Reject a map with no child
+source.
+
+Treat every map child as in scope unless the map's `## Out of scope` section links it with a reason.
+For every in-scope child, query the issue and its full comments. Require `state` to be `CLOSED`,
+`state_reason` to be `COMPLETED`, and a non-empty resolution comment whose first line is
+`Wayfinder-Resolution:`. Reject open children, `NOT_PLANNED` closure, duplicate closure, missing
+resolution, or a child omitted from the selected native or fallback relation. Read nested source
+links until each product decision that constrains the spec has one completed source issue. Reject
+in-scope content under `Not yet specified`.
+
+Capture the approved hash and all source URLs as one admission record. Put
+`APPROVED_SPEC_SHA256 <hash>` and `SOURCE <spec-map-decision-urls>` on the Beads epic and each
+relevant task. Product approval is the final start gate. Do not ask for another implementation
+approval after admission.
+
+Run the full admission check on the initial coordinator start. Repeat it immediately before any
+Beads graph mutation and before each new child starts. If the current body, newest marker, map,
+or decision state no longer matches the admission record, stop Beads writes and new children. Send
+the program back to Product shaping with the exact stale source, unresolved decision, or fog.
 
 The tracker owns the approved spec, approval comments, Wayfinder map, and decision tickets. Do not
 turn the spec into GitHub implementation tickets or copy a dependency graph there. Beads owns the
@@ -74,15 +94,16 @@ inference. If the user asked, run `bd init --skip-agents --skip-hooks` once. Run
 the first graph operation, then commit and push the resulting state.
 
 The root coordinator is the sole Beads writer. A Beads epic owns the program's task beads and
-dependency edges. Record the approved spec and relevant decision issue links on the epic and each
-task bead. Children receive immutable briefs with their bead IDs. They never create, update, close,
-or push beads. Do not use JSONL as a sync mechanism. Never force a Beads push.
+dependency edges. Record the approved hash, spec URL, map URL when present, and relevant decision issue
+URLs on the epic and each task bead. Children receive immutable briefs with their bead IDs. They
+never create, update, close, or push beads. Do not use JSONL as a sync mechanism. Never force a Beads push.
 
 GitHub and jj own branches, commits, bookmarks, PRs, merges, and stack order. Child-session tools
 own live session state. Beads does not own either. Existing Lazar records own verification evidence
 when their contract applies. A task bead can point to that evidence, but it does not replace it.
 
-After every durable transition, run `bd dolt commit -m "<transition>"`, then `bd dolt push`. Durable
+After the admission check passes, run `bd dolt commit -m "<transition>"`, then `bd dolt push` after
+every durable transition. Durable
 transitions include program creation, task and dependency creation, assignment, a new pushed head
 SHA, a PR, a verification verdict, a blocked state, a task close, and program close. If a commit or
 push fails, stop Beads writes. Reconcile the remote state, then retry without force.
@@ -144,20 +165,21 @@ the brief fails, stop the next refill and fix the track coordinator's contract.
    the budget, use Autonomous run. Send contested decomposition or an irreversible design choice
    through **pstack-arena** first.
 2. **Create durable state.** Confirm the remote Beads ref or the explicit initialization request. If
-   the ref exists, run `bd bootstrap`, `bd dolt pull`, and `bd prime` before any graph command. Create
-   one epic with `bd create --type epic --title "<program>" --description "SOURCE <source-urls>"`.
-   Create the sole implementation graph as task beads with `bd create --type task --title "<task>"
-   --parent <epic-id> --description "SOURCE <relevant-source-urls>"`.
-   Add each dependency with `bd dep add <task-id> <prerequisite-id>`. Commit and push Dolt after this
-   setup.
-3. **Pilot.** Move one task through brief, worker, independent verification when needed, PR, exact-SHA
-   verdict, and merge. Use `bd update <task-id> --status in_progress` before work. Record the child
+   the ref exists, run `bd bootstrap`, `bd dolt pull`, and `bd prime` before any graph command. Repeat
+   the admission check. Create one epic with `bd create --type epic --title "<program>"
+   --description "APPROVED_SPEC_SHA256 <hash>\nSOURCE <source-urls>"`. Create the sole implementation
+   graph as task beads with `bd create --type task --title "<task>" --parent <epic-id>
+   --description "APPROVED_SPEC_SHA256 <hash>\nSOURCE <relevant-source-urls>"`. Add each dependency
+   with `bd dep add <task-id> <prerequisite-id>`. Commit and push Dolt after this setup.
+3. **Pilot.** Repeat the admission check before the graph update and before the child starts. Move
+   one task through brief, worker, independent verification when needed, PR, exact-SHA verdict, and
+   merge. Use `bd update <task-id> --status in_progress` before work. Record the child
    session ID with `bd update <task-id> --notes "child: <session-id>"`. Fix the task size and brief
    from pilot evidence before broad fan-out. For cheap repeated tasks, the first normal task is the
    pilot.
-4. **Scale.** Query ready work with `bd ready`. Start a rolling window through the background child
-   tools. Relay dependency results into each immutable brief. Add a track coordinator only after one
-   root drain cannot keep up.
+4. **Scale.** Query ready work with `bd ready`. Repeat the admission check before each new child.
+   Start a rolling window through the background child tools. Relay dependency results into each
+   immutable brief. Add a track coordinator only after one root drain cannot keep up.
 5. **Drain.** Process completions in groups after a critical section, at a track report, before a
    human report, and before a landing action. Classify each task as ready for verification, blocked,
     failed, abandoned, or ready to land. Apply all Beads updates as the root, then commit and push
@@ -177,7 +199,8 @@ Critical sections include brief creation, a stack operation, a conflict decision
 and a human gate. A completion that needs review becomes a verifier task. Do not review a large diff
 inside a drain.
 
-At each drain, use the child-status tool once for the completed set. Account for every child as
+At each drain, use the child-status tool once for the completed set. Repeat the admission check
+before any resulting Beads mutation. Account for every child as
 arrived, respawned, abandoned, or absorbed into a named replacement task. Recompute ready tasks with
 `bd ready`, update the affected beads, push Beads, and refill the window in one tool call.
 
@@ -213,10 +236,14 @@ the task and replan its dependants.
 Reconcile a late child against the current branch, PR, and head SHA before accepting anything. Put
 unique findings into a fresh task. Never merge late work without this check.
 
-After a runtime restart, run `bd bootstrap`, `bd dolt pull`, and `bd prime` before any graph read.
-Then read the epic with `bd show <epic-id>`, query open work with `bd list`, and query ready work with
-`bd ready`. Reattach work by child session ID, branch, PR, and head SHA. Spawn replacement track
-coordinators from complete current briefs. Do not assume a prior local session is alive.
+After a runtime restart, run `bd bootstrap`, `bd dolt pull`, and `bd prime`.
+Read the epic admission record with `bd show <epic-id>`.
+The record supplies the stored spec URL, approved hash, and product source URLs.
+Then repeat the full admission check.
+Do not run any Beads graph mutation or start a new child until that check passes.
+After the check passes, query open work with `bd list` and ready work with `bd ready`.
+Reattach work by child session ID, branch, PR, and head SHA.
+Spawn replacement track coordinators from complete current briefs. Do not assume a prior local session is alive.
 
 If broken inputs or infrastructure make further fan-out unsafe, stop new children. Let current
 children finish, fix the cause, and resume from Beads. Bound coordinator retries too. When the
