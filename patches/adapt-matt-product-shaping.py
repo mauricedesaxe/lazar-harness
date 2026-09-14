@@ -4,14 +4,47 @@ import sys
 
 NON_SHAPING_SKILLS = {"handoff"}
 
+STAGE_DESCRIPTIONS = {
+    "grilling": "Internal Product shaping stage that interviews the user until the product decisions are clear.",
+    "grill-me": "Internal Product shaping entry stage for a product interview without repository context.",
+    "grill-with-docs": "Internal Product shaping entry stage for a product interview with repository context.",
+    "domain-modeling": "Internal Product shaping stage that sharpens product terms and records durable domain decisions.",
+    "wayfinder": "Internal Product shaping stage that resolves a large product question through a map of decision issues.",
+    "to-spec": "Internal Product shaping stage that turns settled product decisions into a tracker spec.",
+    "to-tickets": "Internal Product shaping stage that turns an approved spec into delivery tickets where the installed surface permits them.",
+    "research": "Internal Product shaping stage that gathers primary-source facts for a product decision.",
+    "prototype": "Internal Product shaping stage that builds throwaway evidence for a product decision.",
+    "to-questionnaire": "Internal Product shaping stage that asks a stakeholder for required product facts or decisions.",
+}
+
 STAGE_BOUNDARY = """## Stage boundary
 
-This Matt leaf performs only its named stage. It must not choose, start, or route implementation. Product shaping passes product decisions to P stack.
+This Matt leaf performs only the {stage} stage. It must not choose, start, or route implementation. Natural-language and explicit `/{stage}` requests enter the pstack-poteto-mode Product shaping playbook. If this leaf was selected directly, invoke that playbook first. Resume at the {stage} stage only when that playbook's installed-surface rules permit it. Product-decision prototypes before approval use Matt. Implementation experiments after approval use P stack.
 
 """
 
 REPLACEMENTS = {
+    "domain-modeling/SKILL.md": [
+        (
+            "### Offer ADRs sparingly\n\nOnly offer to create an ADR when all three are true:\n\n1. **Hard to reverse**: the cost of changing your mind later is meaningful\n2. **Surprising without context**: a future reader will wonder \"why did they do it this way?\"\n3. **The result of a real trade-off**: there were genuine alternatives and you picked one for specific reasons\n\nIf any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).",
+            "### Keep product decisions in the tracker spec\n\nRecord settled product decisions in the tracker spec. Follow the repository's ADR policy. Use an ADR only for temporary discussion or for a lasting decision that code cannot express, such as a vendor, process, SLA, or contract. Archive or remove a temporary ADR after the chosen direction lands. Use [ADR-FORMAT.md](./ADR-FORMAT.md) only when an ADR clears that bar.",
+        ),
+    ],
+    "domain-modeling/ADR-FORMAT.md": [
+        (
+            "## When to offer an ADR\n\nAll three of these must be true:\n\n1. **Hard to reverse**: the cost of changing your mind later is meaningful\n2. **Surprising without context**: a future reader will look at the code and wonder \"why on earth did they do it this way?\"\n3. **The result of a real trade-off**: there were genuine alternatives and you picked one for specific reasons\n\nIf a decision is easy to reverse, skip it: you'll just reverse it. If it's not surprising, nobody will wonder why. If there was no real alternative, there's nothing to record beyond \"we did the obvious thing.\"\n\n### What qualifies\n\n- **Architectural shape.** \"We're using a monorepo.\" \"The write model is event-sourced, the read model is projected into Postgres.\"\n- **Integration patterns between contexts.** \"Ordering and Billing communicate via domain events, not synchronous HTTP.\"\n- **Technology choices that carry lock-in.** Database, message bus, auth provider, deployment target. Not every library: just the ones that would take a quarter to swap out.\n- **Boundary and scope decisions.** \"Customer data is owned by the Customer context; other contexts reference it by ID only.\" The explicit no-s are as valuable as the yes-s.\n- **Deliberate deviations from the obvious path.** \"We're using manual SQL instead of an ORM because X.\" Anything where a reasonable reader would assume the opposite. These stop the next engineer from \"fixing\" something that was deliberate.\n- **Constraints not visible in the code.** \"We can't use AWS because of compliance requirements.\" \"Response times must be under 200ms because of the partner API contract.\"\n- **Rejected alternatives when the rejection is non-obvious.** If you considered GraphQL and picked REST for subtle reasons, record it; otherwise someone will suggest GraphQL again in six months.",
+            "## When to offer an ADR\n\nFollow the repository's ADR policy. Use this format for a temporary discussion artifact or a lasting decision that code cannot express. Lasting examples include a vendor choice, a process change, an SLA, or a contractual constraint. Archive or remove a temporary ADR after the chosen direction lands. Record settled product decisions in the tracker spec instead.",
+        ),
+    ],
     "wayfinder/SKILL.md": [
+        (
+            "The destination varies per effort, and naming it is the first act of charting: it shapes every ticket. It might be a spec to hand off and iterate on, a decision to lock before planning starts, or a change made in place like a data-structure migration. The map is domain-agnostic: engineering work, course content, whatever fits the shape.",
+            "The destination varies per effort, and naming it is the first act of charting: it shapes every ticket. It might be a spec to hand off and iterate on or a decision to lock before planning starts. The map is domain-agnostic: engineering work, course content, whatever fits the shape.",
+        ),
+        (
+            "Wayfinder is **planning** by default: each ticket resolves a decision, and the map is done when the way is clear, with nothing left to decide before someone goes and does the thing. The pull to just do the work is usually the signal you've reached the edge of the map and it's time to hand off. An effort can override this in its **Notes**, carrying execution into the map itself, but absent that, produce decisions, not deliverables.",
+            "Wayfinder resolves decisions only. Each ticket resolves one decision, and the map is done when the way is clear. The pull to do the work means that the map has reached its handoff point. Notes cannot carry implementation into the map. Produce decisions, not deliverables.",
+        ),
         (
             "**Where the map, its child tickets, blocking, and frontier queries physically live is tracker-specific.** The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`. Consult the tracker doc's \"Wayfinding operations\" section for how _this_ repo expresses them. If no tracker has been provided, default to the local-markdown tracker.",
             "**Where the map, its child tickets, blocking, claims, and frontier queries physically live is tracker-specific.** Resolve the issue tracker through the **Tracker resolution** contract in `CLAUDE.md`. Follow its order: repo config, machine-local note, inference, then ask once and save the answer. Consult the resolved tracker contract's \"Wayfinding operations\" section for this repo's commands and conventions.",
@@ -32,7 +65,7 @@ REPLACEMENTS = {
     "to-spec/SKILL.md": [
         (
             "<spec-template>\n\n## Problem Statement",
-            "<spec-template>\n\n## Product sources\n\nFor a Wayfinder spec, link the one product-decision map that supplied this spec. Omit this section when no map exists.\n\n## Problem Statement",
+            "<spec-template>\n\n## Product sources\n\nFor a Wayfinder spec, link the product-decision map and every decision issue represented in the spec. This exact list becomes authoritative when the approved spec body is hashed. Treat these links as provenance, not as requirement text. Omit this section when no map exists.\n\n## Problem Statement",
         ),
         (
             "The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.",
@@ -40,10 +73,18 @@ REPLACEMENTS = {
         ),
         (
             "3. Write the spec using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.",
-            "3. Write the spec using the template below. If Wayfinder produced the source material, include `## Product sources` and link its map. Omit that section for a bounded spec without a map. Then publish the spec to the project issue tracker as an unapproved draft. Apply `ready-for-human` when the tracker supports that label, or publish it without a triage label. Do not apply `ready-for-agent`. Product shaping owns approval and may apply `ready-for-agent` only after the approved-body marker exists.",
+            "3. Write the spec using the template below. If Wayfinder produced the source material, include `## Product sources`. Link its map and every decision issue represented in the spec. Copy every settled requirement into the spec body because source links are provenance only. This exact list becomes authoritative when Product shaping hashes the approved body. Omit that section for a bounded spec without a map. Then publish the spec to the project issue tracker as an unapproved draft. Apply `ready-for-human` when the tracker supports that label, or publish it without a triage label. Do not apply `ready-for-agent`. Product shaping owns approval and readiness.",
         ),
     ],
     "to-tickets/SKILL.md": [
+        (
+            "Break a plan, spec, or conversation into a set of **tickets**: tracer-bullet vertical slices, each declaring the tickets that **block** it.",
+            "Break an approved tracker spec into a set of **tickets**: tracer-bullet vertical slices, each declaring the tickets that **block** it.",
+        ),
+        (
+            "Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.",
+            "Require an approved tracker spec reference. Product shaping must verify its current approval marker before this stage starts. Fetch the spec and read its full body and comments. Stop if the reference or verified approval is missing.",
+        ),
         (
             "The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.",
             "Resolve the issue tracker through the **Tracker resolution** contract in `CLAUDE.md`. Follow its order: repo config, machine-local note, inference, then ask once and save the answer. Use the resolved tracker's commands, conventions, and triage labels.",
@@ -101,8 +142,25 @@ def replace_exact(text: str, old: str, new: str, path: Path) -> str:
     return text.replace(old, new)
 
 
-def add_stage_boundary(text: str, path: Path) -> str:
-    if STAGE_BOUNDARY.strip() in text:
+def adapt_description(text: str, skill_name: str, path: Path) -> str:
+    lines = text.splitlines(keepends=True)
+    delimiters = [index for index, line in enumerate(lines) if line.rstrip("\r\n") == "---"]
+    if len(delimiters) < 2:
+        raise ValueError(f"{path}: frontmatter has no closing delimiter")
+    matches = [
+        index for index in range(delimiters[0] + 1, delimiters[1])
+        if lines[index].startswith("description:")
+    ]
+    if len(matches) != 1:
+        raise ValueError(f"{path}: expected one frontmatter description, found {len(matches)}")
+    newline = "\r\n" if lines[matches[0]].endswith("\r\n") else "\n"
+    lines[matches[0]] = f'description: "{STAGE_DESCRIPTIONS[skill_name]}"{newline}'
+    return "".join(lines)
+
+
+def add_stage_boundary(text: str, skill_name: str, path: Path) -> str:
+    stage_boundary = STAGE_BOUNDARY.format(stage=skill_name)
+    if "## Stage boundary" in text:
         raise ValueError(f"{path}: stage boundary already exists upstream")
     lines = text.splitlines(keepends=True)
     delimiters = [index for index, line in enumerate(lines) if line.rstrip("\r\n") == "---"]
@@ -111,7 +169,7 @@ def add_stage_boundary(text: str, path: Path) -> str:
     index = delimiters[1] + 1
     if index >= len(lines) or lines[index].strip():
         raise ValueError(f"{path}: expected a blank line after frontmatter")
-    lines.insert(index + 1, STAGE_BOUNDARY)
+    lines.insert(index + 1, stage_boundary)
     return "".join(lines)
 
 
@@ -137,7 +195,8 @@ def main() -> int:
                 continue
             path = root / skill_name / "SKILL.md"
             text = adapted.get(path, path.read_text())
-            adapted[path] = add_stage_boundary(text, path)
+            text = adapt_description(text, skill_name, path)
+            adapted[path] = add_stage_boundary(text, skill_name, path)
     except (OSError, ValueError) as error:
         print(f"Matt adaptation rejected upstream drift: {error}", file=sys.stderr)
         return 1

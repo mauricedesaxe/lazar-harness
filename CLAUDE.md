@@ -176,7 +176,8 @@ resort, and it happens at most once per repo**:
 1. **The repo's own config**: `docs/agents/issue-tracker.md`, where the repo permits such a file,
    written by hand when the repo is set up.
 2. **The machine-local note** (below), for shared work repos where committing harness config isn't
-   an option.
+   an option. Product shaping also reads the trusted product approver GitHub logins from one of these
+   two tracker configs.
 3. **Inference**: the remote host, issue-key patterns in branch names and commit messages, and
    which tracker MCPs are connected. GitHub and Linear cover nearly everything I work on.
 4. **Ask**, and **write the answer to the note**, so the same question is never asked twice.
@@ -206,6 +207,7 @@ must not guess at:
 
 - tracker: Linear, team ICON, via `mcp__linear__*`
 - issue key: `ICON-<n>`
+- trusted product approver GitHub logins: `alexlazar`, `productowner`
 - vcs: jj, colocated with git
 - standup: Slack, #eng-standup
 
