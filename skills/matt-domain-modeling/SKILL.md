@@ -1,11 +1,11 @@
 ---
 name: matt-domain-modeling
-description: Build and sharpen a project's domain model. Use when discussing codebase terminology, writing or editing a CONTEXT.md, or recording or editing an ADR.
+description: "Internal Product shaping stage that sharpens product terms and records durable domain decisions."
 ---
 
 ## Stage boundary
 
-This Matt leaf performs only its named stage. It must not choose, start, or route implementation. Product shaping passes product decisions to P stack.
+This Matt leaf performs only the domain-modeling stage. It must not choose, start, or route implementation. Natural-language and explicit `/matt-domain-modeling` requests enter the pstack-poteto-mode Product shaping playbook. If this leaf was selected directly, invoke that playbook first. Resume at the domain-modeling stage only when that playbook's installed-surface rules permit it. Product-decision prototypes before approval use Matt. Implementation experiments after approval use P stack.
 
 # Domain Modeling
 
@@ -67,12 +67,6 @@ When a term is resolved, update `CONTEXT.md` right there. Don't batch these up: 
 
 `CONTEXT.md` should be totally devoid of implementation details. Do not treat `CONTEXT.md` as a spec, a scratch pad, or a repository for implementation decisions. It is a glossary and nothing else.
 
-### Offer ADRs sparingly
+### Keep product decisions in the tracker spec
 
-Only offer to create an ADR when all three are true:
-
-1. **Hard to reverse**: the cost of changing your mind later is meaningful
-2. **Surprising without context**: a future reader will wonder "why did they do it this way?"
-3. **The result of a real trade-off**: there were genuine alternatives and you picked one for specific reasons
-
-If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
+Record settled product decisions in the tracker spec. Follow the repository's ADR policy. Use an ADR only for temporary discussion or for a lasting decision that code cannot express, such as a vendor, process, SLA, or contract. Archive or remove a temporary ADR after the chosen direction lands. Use [ADR-FORMAT.md](./ADR-FORMAT.md) only when an ADR clears that bar.

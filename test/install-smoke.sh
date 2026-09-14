@@ -186,6 +186,14 @@ assert_surface_rendered "Product shaping installed to OpenCode" \
 for installed_shaping in "$product_shaping" "$opencode_product_shaping"; do
   assert_contains "local Product shaping persists an exact spec approval marker" \
     'Approved-Spec-Body-SHA256: <hash>' "$installed_shaping"
+  assert_contains "local Product shaping readies a sole implementation spec" \
+    'When the approved spec itself is the sole implementation issue' "$installed_shaping"
+  assert_contains "local Product shaping leaves delivery readiness to matt-to-tickets" \
+    'Let **matt-to-tickets** apply `ready-for-agent`' "$installed_shaping"
+  assert_contains "local Product shaping clears approved specs from human review" \
+    'Remove `ready-for-human` from every approved spec.' "$installed_shaping"
+  assert_not_contains "local Product shaping has no sandbox readiness rule" \
+    'Never apply `ready-for-agent` to the spec.' "$installed_shaping"
 done
 assert_contains "the installed router reaches Product shaping" \
   '`playbooks/product-shaping.md`' "$router"
@@ -770,9 +778,15 @@ for root in "$claude" "$opencode"; do
   assert_contains "installed matt-prototype stops before production code" \
     'Do not fold or lift untested prototype code into production.' \
     "$root/skills/matt-prototype/SKILL.md"
-  assert_contains "installed Product shaping Matt leaves cannot route implementation" \
-    'It must not choose, start, or route implementation.' \
-    "$root/skills/matt-wayfinder/SKILL.md"
+  for matt_leaf in "$root"/skills/matt-*/SKILL.md; do
+    [ "$(basename -- "$(dirname -- "$matt_leaf")")" = matt-handoff ] && continue
+    assert_contains "installed Product shaping Matt leaf cannot route implementation" \
+      'It must not choose, start, or route implementation.' "$matt_leaf"
+    assert_contains "installed Product shaping Matt leaf routes direct selection through the router" \
+      'If this leaf was selected directly, invoke that playbook first.' "$matt_leaf"
+    assert_contains "installed Product shaping Matt leaf has an internal-stage description" \
+      'description: "Internal ' "$matt_leaf"
+  done
   assert_not_contains "installed matt-handoff remains a general compaction utility" \
     'It must not choose, start, or route implementation.' \
     "$root/skills/matt-handoff/SKILL.md"
@@ -1416,15 +1430,21 @@ assert_contains "the sandbox orchestrate playbook uses an absolute installed has
 assert_contains "the sandbox orchestrate playbook keeps the target repository as cwd" \
   'Keep the target repository as the current' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook compares the approval body hash" \
-  'newest exact `Approved-Spec-Body-SHA256: <hash>` marker must equal the' "$sandbox_orchestrate"
+  'The newest trusted marker must equal the current body hash.' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook rejects stale approval" \
-  'A missing or stale marker rejects admission.' "$sandbox_orchestrate"
+  'A missing or stale trusted marker rejects admission.' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook ignores untrusted approval markers" \
+  'Ignore marker-shaped comments from untrusted logins.' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook uses the hashed source list as authority" \
+  'exact product source list the admission authority' "$sandbox_orchestrate"
+assert_contains "the sandbox orchestrate playbook does not replace sources from map edits" \
+  'Do not replace that list from the map.' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook rejects unresolved product decisions" \
-  'Reject open children' "$sandbox_orchestrate"
+  'Reject an open issue' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook checks closure reasons" \
-  '`NOT_PLANNED` closure, duplicate closure' "$sandbox_orchestrate"
+  'a `NOT_PLANNED` closure' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook requires resolution comments" \
-  'a non-empty resolution comment whose first line is' "$sandbox_orchestrate"
+  'one marked, non-empty resolution whose first line is' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook revalidates before graph changes" \
   'any Beads graph mutation' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook stores the approved hash" \
@@ -1440,9 +1460,9 @@ assert_in_order "the sandbox orchestrate playbook pins the cold recovery order" 
   'Then repeat the full admission check.' \
   'Do not run any Beads graph mutation or start a new child'
 assert_contains "the sandbox orchestrate playbook rejects in-scope fog" \
-  'under `Not yet specified`' "$sandbox_orchestrate"
+  '`Not yet specified` section at initial admission' "$sandbox_orchestrate"
 assert_contains "the sandbox orchestrate playbook adds SOURCE to child briefs" \
-  'SOURCE       approved spec URL and relevant closed decision issue URLs' "$sandbox_orchestrate"
+  'SOURCE       approved spec URL and relevant URLs from the exact approved product source list' "$sandbox_orchestrate"
 for installed_hash_helper in "$sandbox_claude_hash_helper" "$sandbox_opencode_hash_helper"; do
   assert_same_file "the sandbox body hash helper travels with its skill" \
     "$hash_helper_source" "$installed_hash_helper"
@@ -1459,6 +1479,12 @@ for sandbox_shaping in "$sandbox_product_shaping" "$sandbox_opencode_product_sha
     'derives the sole implementation task graph' "$sandbox_shaping"
   assert_contains "sandbox Product shaping persists an exact spec approval marker" \
     'Approved-Spec-Body-SHA256: <hash>' "$sandbox_shaping"
+  assert_contains "sandbox Product shaping removes human readiness" \
+    'Remove `ready-for-human` from the approved spec.' "$sandbox_shaping"
+  assert_contains "sandbox Product shaping never queues its spec for an agent" \
+    'Never apply `ready-for-agent` to the spec.' "$sandbox_shaping"
+  assert_contains "sandbox Product shaping uses Beads as the only implementation queue" \
+    'The Beads graph is the only implementation queue.' "$sandbox_shaping"
   assert_not_contains "sandbox Product shaping skips matt-to-tickets" \
     'For multi-ticket work, call **matt-to-tickets**' "$sandbox_shaping"
 done

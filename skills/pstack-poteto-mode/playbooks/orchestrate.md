@@ -31,45 +31,23 @@ Open a todolist with the steps below copied in verbatim. Keep a skipped step wit
 
 #### Admission from an approved tracker spec
 
-Orchestrate admits a standing program only from one approved tracker spec. The spec is the product
-contract. Read its full body and every comment.
+Orchestrate admits a standing program only from one approved tracker spec. The spec is the product contract. Read its full body and every comment.
 
-For GitHub, resolve one repository with
-`repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)`. Pass `-R "$repo"` to every issue
-command. Use `repos/$repo/...` for every API path. Keep the target repository as the current
-directory. Invoke `<absolute-installed-skill-path>/scripts/spec-body-hash.sh <spec-number>`. A helper
-failure rejects admission. Fetch every spec
-comment in server order. The newest exact `Approved-Spec-Body-SHA256: <hash>` marker must equal the
-current hash. A missing or stale marker rejects admission.
+For GitHub, resolve one repository with `repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)`. Pass `-R "$repo"` to every issue command. Use `repos/$repo/...` for every API path. Keep the target repository as the current directory. Invoke `<absolute-installed-skill-path>/scripts/spec-body-hash.sh <spec-number>`. A helper failure rejects admission.
 
-A spec from Wayfinder must contain a `## Product sources` section that links its map. Reject a mapped
-spec when the link is absent from that section. Keep bounded specs without a map valid. For a linked
-map, query all native sub-issues with the paginated `sub_issues` API. Use every linked checklist child
-under `## Decision issues` only when the native endpoint is unavailable. Reject a map with no child
-source.
+Read the trusted product approver logins from the resolved tracker setting. A missing or empty setting rejects admission. Fetch every spec comment in server order with its body and author login. Filter to exact `Approved-Spec-Body-SHA256: <hash>` markers whose author login is trusted. The newest trusted marker must equal the current body hash. Ignore marker-shaped comments from untrusted logins. A missing or stale trusted marker rejects admission.
 
-Treat every map child as in scope unless the map's `## Out of scope` section links it with a reason.
-For every in-scope child, query the issue and its full comments. Require `state` to be `CLOSED`,
-`state_reason` to be `COMPLETED`, and a non-empty resolution comment whose first line is
-`Wayfinder-Resolution:`. Reject open children, `NOT_PLANNED` closure, duplicate closure, missing
-resolution, or a child omitted from the selected native or fallback relation. Read nested source
-links until each product decision that constrains the spec has one completed source issue. Reject
-in-scope content under `Not yet specified`.
+A Wayfinder-derived spec must contain `## Product sources`. Parse the URLs listed in that section from the approved body. Require one product-decision map URL and every decision issue represented in the spec. Reject a mapped spec with no decision issue source. Keep bounded specs without a map valid.
 
-Capture the approved hash and all source URLs as one admission record. Put
-`APPROVED_SPEC_SHA256 <hash>` and `SOURCE <spec-map-decision-urls>` on the Beads epic and each
-relevant task. Product approval is the final start gate. Do not ask for another implementation
-approval after admission.
+The approved body and its hash make the exact product source list the admission authority. Treat the map as an index and the listed sources as provenance only. Derive requirements only from the approved spec body. Do not discover admission sources from the map's current children, checklist, or later edits. A later source edit cannot change an admitted requirement. A product source list or requirement change requires a new spec body hash and a new trusted approval marker.
 
-Run the full admission check on the initial coordinator start. Repeat it immediately before any
-Beads graph mutation and before each new child starts. If the current body, newest marker, map,
-or decision state no longer matches the admission record, stop Beads writes and new children. Send
-the program back to Product shaping with the exact stale source, unresolved decision, or fog.
+For every decision issue in the approved source list, query the issue and its full comments. Require `state` to be `CLOSED` and `state_reason` to be `COMPLETED`. Require one marked, non-empty resolution whose first line is `Wayfinder-Resolution:`. Reject an open issue, a `NOT_PLANNED` closure, or a missing or empty resolution. Reject duplicate source URLs. Reject in-scope content under the listed map's `Not yet specified` section at initial admission. Do not derive requirement text from a source issue or its comments.
 
-The tracker owns the approved spec, approval comments, Wayfinder map, and decision tickets. Do not
-turn the spec into GitHub implementation tickets or copy a dependency graph there. Beads owns the
-one implementation task graph. It does not own product requirements, code, branch or PR state, or
-verification evidence.
+Capture the approved hash and the exact ordered source URL list as one admission record. Put `APPROVED_SPEC_SHA256 <hash>` and one `SOURCE <url>` line per approved source on the Beads epic and each relevant task. Product approval is the final start gate. Do not ask for another implementation approval after admission.
+
+Run the full admission check on the initial coordinator start. Repeat it immediately before any Beads graph mutation and before each new child starts. Compare the current body hash and newest trusted marker with the admission record. Revalidate every decision issue in the recorded source list. Do not replace that list from the map. If a checked value no longer matches, stop Beads writes and new children. Send the program back to Product shaping with the exact stale source or unresolved decision.
+
+The tracker owns the approved spec, approval comments, Wayfinder map, and decision issues. Do not turn the spec into GitHub implementation tickets or copy a dependency graph there. Beads owns the one implementation task graph. It does not own product requirements, code, branch or PR state, or verification evidence.
 
 #### Ownership and durable state
 
@@ -94,8 +72,7 @@ inference. If the user asked, run `bd init --skip-agents --skip-hooks` once. Run
 the first graph operation, then commit and push the resulting state.
 
 The root coordinator is the sole Beads writer. A Beads epic owns the program's task beads and
-dependency edges. Record the approved hash, spec URL, map URL when present, and relevant decision issue
-URLs on the epic and each task bead. Children receive immutable briefs with their bead IDs. They
+dependency edges. Record the approved hash, spec URL, and relevant URLs from the exact approved product source list on the epic and each task bead. Children receive immutable briefs with their bead IDs. They
 never create, update, close, or push beads. Do not use JSONL as a sync mechanism. Never force a Beads push.
 
 GitHub and jj own branches, commits, bookmarks, PRs, merges, and stack order. Child-session tools
@@ -132,7 +109,7 @@ Every child gets the complete brief. A missing field means the task is not ready
 
 ```text
 BEAD         task bead ID; epic bead ID
-SOURCE       approved spec URL and relevant closed decision issue URLs
+SOURCE       approved spec URL and relevant URLs from the exact approved product source list
 GOAL         one sentence with an outcome a stranger can execute
 SCOPE        paths allowed and forbidden; exclusive jj workspace or bookmark
 CONTEXT      files, PRs, and complete upstream reports needed by this task
@@ -159,18 +136,22 @@ the brief fails, stop the next refill and fix the track coordinator's contract.
 #### Steps
 
 1. **Frame.** Apply the admission contract. Explore the current codebase, then derive a countable
-   done predicate and the implementation breakdown from the approved spec, its product sources, and
-   that exploration. Quantify tasks, effort, expected PRs, and the wall-clock budget. Name the tracks.
+   done predicate and the implementation breakdown from the approved spec and that exploration.
+   Product sources preserve traceability and do not add work. Quantify tasks, effort, expected PRs,
+   and the wall-clock budget. Name the tracks.
    Worker briefs are execution artifacts, not copies of issue bodies. If one agent can finish within
    the budget, use Autonomous run. Send contested decomposition or an irreversible design choice
    through **pstack-arena** first.
 2. **Create durable state.** Confirm the remote Beads ref or the explicit initialization request. If
    the ref exists, run `bd bootstrap`, `bd dolt pull`, and `bd prime` before any graph command. Repeat
-   the admission check. Create one epic with `bd create --type epic --title "<program>"
-   --description "APPROVED_SPEC_SHA256 <hash>\nSOURCE <source-urls>"`. Create the sole implementation
-   graph as task beads with `bd create --type task --title "<task>" --parent <epic-id>
-   --description "APPROVED_SPEC_SHA256 <hash>\nSOURCE <relevant-source-urls>"`. Add each dependency
-   with `bd dep add <task-id> <prerequisite-id>`. Commit and push Dolt after this setup.
+   the admission check. Prepare `source_lines` as the exact ordered source URLs, with one
+   `SOURCE <url>` entry per line. Create one epic with
+   `printf 'APPROVED_SPEC_SHA256 %s\nSPEC %s\n%s\n' "$hash" "$spec_url" "$source_lines" | bd create
+   --type epic --title "<program>" --body-file -`. Prepare each task's `relevant_source_lines` in the
+   same format. Create the sole implementation graph with
+   `printf 'APPROVED_SPEC_SHA256 %s\nSPEC %s\n%s\n' "$hash" "$spec_url" "$relevant_source_lines" |
+   bd create --type task --title "<task>" --parent <epic-id> --body-file -`. Add each dependency with
+   `bd dep add <task-id> <prerequisite-id>`. Commit and push Dolt after this setup.
 3. **Pilot.** Repeat the admission check before the graph update and before the child starts. Move
    one task through brief, worker, independent verification when needed, PR, exact-SHA verdict, and
    merge. Use `bd update <task-id> --status in_progress` before work. Record the child
@@ -238,7 +219,7 @@ unique findings into a fresh task. Never merge late work without this check.
 
 After a runtime restart, run `bd bootstrap`, `bd dolt pull`, and `bd prime`.
 Read the epic admission record with `bd show <epic-id>`.
-The record supplies the stored spec URL, approved hash, and product source URLs.
+The record supplies the stored spec URL, approved hash, and exact approved product source list.
 Then repeat the full admission check.
 Do not run any Beads graph mutation or start a new child until that check passes.
 After the check passes, query open work with `bd list` and ready work with `bd ready`.

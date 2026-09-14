@@ -1,19 +1,19 @@
 ---
 name: matt-wayfinder
-description: Plan a huge chunk of work (more than one agent session can hold) as a shared map of decision tickets on your issue tracker, and resolve them one at a time until the way to the destination is clear.
+description: "Internal Product shaping stage that resolves a large product question through a map of decision issues."
 ---
 
 ## Stage boundary
 
-This Matt leaf performs only its named stage. It must not choose, start, or route implementation. Product shaping passes product decisions to P stack.
+This Matt leaf performs only the wayfinder stage. It must not choose, start, or route implementation. Natural-language and explicit `/matt-wayfinder` requests enter the pstack-poteto-mode Product shaping playbook. If this leaf was selected directly, invoke that playbook first. Resume at the wayfinder stage only when that playbook's installed-surface rules permit it. Product-decision prototypes before approval use Matt. Implementation experiments after approval use P stack.
 
 A loose idea has arrived, too big for one agent session, and wrapped in fog: the way from here to the **destination** isn't visible yet. Wayfinding is about finding that way, not charging at the destination. This skill charts the way as a **shared map** on the repo's issue tracker, then works its **decision tickets** (questions whose resolution is a decision, not slices of a build to execute) one at a time until the route is clear.
 
-The destination varies per effort, and naming it is the first act of charting: it shapes every ticket. It might be a spec to hand off and iterate on, a decision to lock before planning starts, or a change made in place like a data-structure migration. The map is domain-agnostic: engineering work, course content, whatever fits the shape.
+The destination varies per effort, and naming it is the first act of charting: it shapes every ticket. It might be a spec to hand off and iterate on or a decision to lock before planning starts. The map is domain-agnostic: engineering work, course content, whatever fits the shape.
 
 ## Plan, don't do
 
-Wayfinder is **planning** by default: each ticket resolves a decision, and the map is done when the way is clear, with nothing left to decide before someone goes and does the thing. The pull to just do the work is usually the signal you've reached the edge of the map and it's time to hand off. An effort can override this in its **Notes**, carrying execution into the map itself, but absent that, produce decisions, not deliverables.
+Wayfinder resolves decisions only. Each ticket resolves one decision, and the map is done when the way is clear. The pull to do the work means that the map has reached its handoff point. Notes cannot carry implementation into the map. Produce decisions, not deliverables.
 
 ## Refer by name
 

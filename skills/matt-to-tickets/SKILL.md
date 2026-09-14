@@ -1,15 +1,15 @@
 ---
 name: matt-to-tickets
-description: Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the configured tracker (edges as text in one file per ticket locally, or native blocking links on a real tracker).
+description: "Internal Product shaping stage that turns an approved spec into delivery tickets where the installed surface permits them."
 ---
 
 ## Stage boundary
 
-This Matt leaf performs only its named stage. It must not choose, start, or route implementation. Product shaping passes product decisions to P stack.
+This Matt leaf performs only the to-tickets stage. It must not choose, start, or route implementation. Natural-language and explicit `/matt-to-tickets` requests enter the pstack-poteto-mode Product shaping playbook. If this leaf was selected directly, invoke that playbook first. Resume at the to-tickets stage only when that playbook's installed-surface rules permit it. Product-decision prototypes before approval use Matt. Implementation experiments after approval use P stack.
 
 # To Tickets
 
-Break a plan, spec, or conversation into a set of **tickets**: tracer-bullet vertical slices, each declaring the tickets that **block** it.
+Break an approved tracker spec into a set of **tickets**: tracer-bullet vertical slices, each declaring the tickets that **block** it.
 
 Resolve the issue tracker through the **Tracker resolution** contract in `CLAUDE.md`. Follow its order: repo config, machine-local note, inference, then ask once and save the answer. Use the resolved tracker's commands, conventions, and triage labels.
 
@@ -17,7 +17,7 @@ Resolve the issue tracker through the **Tracker resolution** contract in `CLAUDE
 
 ### 1. Gather context
 
-Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.
+Require an approved tracker spec reference. Product shaping must verify its current approval marker before this stage starts. Fetch the spec and read its full body and comments. Stop if the reference or verified approval is missing.
 
 ### 2. Explore the codebase (optional)
 

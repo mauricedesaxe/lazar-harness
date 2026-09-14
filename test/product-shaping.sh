@@ -6,12 +6,14 @@ router="$HARNESS_SOURCE/skills/pstack-poteto-mode/SKILL.md"
 playbook="$HARNESS_SOURCE/skills/pstack-poteto-mode/playbooks/product-shaping.md"
 orchestrate="$HARNESS_SOURCE/skills/pstack-poteto-mode/playbooks/orchestrate.md"
 tracker="$HARNESS_SOURCE/docs/agents/issue-tracker.md"
+claude_md="$HARNESS_SOURCE/CLAUDE.md"
 wayfinder="$HARNESS_SOURCE/skills/matt-wayfinder/SKILL.md"
 to_spec="$HARNESS_SOURCE/skills/matt-to-spec/SKILL.md"
 to_tickets="$HARNESS_SOURCE/skills/matt-to-tickets/SKILL.md"
 prototype="$HARNESS_SOURCE/skills/matt-prototype"
 hash_helper="$HARNESS_SOURCE/skills/pstack-poteto-mode/scripts/spec-body-hash.sh"
 beads_readme="$HARNESS_SOURCE/.beads/README.md"
+readme="$HARNESS_SOURCE/README.md"
 failures=0
 
 pass() { printf 'ok   %s\n' "$1"; }
@@ -65,9 +67,13 @@ done
 assert_contains "Product shaping resolves the tracker through CLAUDE.md" \
   'Tracker resolution order' "$playbook"
 assert_contains "Product shaping passes resolved tracker context to Matt" \
-  'Give the leaf the resolved tracker, its commands, and its conventions.' "$playbook"
+  'Give the leaf the resolved tracker, its commands, its conventions, and its trusted product approver logins.' "$playbook"
 assert_contains "Product shaping persists approval on the spec" \
   'Approved-Spec-Body-SHA256: <hash>' "$playbook"
+assert_contains "Product shaping ignores untrusted approval markers" \
+  'Ignore marker-shaped comments from untrusted logins.' "$playbook"
+assert_contains "Product shaping accepts only the newest trusted approval marker" \
+  'Accept only the newest exact marker from a trusted approver.' "$playbook"
 assert_contains "Product shaping invokes the installed helper by absolute path" \
   '<absolute-installed-skill-path>/scripts/spec-body-hash.sh <spec-number>' "$playbook"
 assert_contains "Product shaping keeps the target repository as cwd" \
@@ -75,19 +81,21 @@ assert_contains "Product shaping keeps the target repository as cwd" \
 assert_contains "Product shaping targets approval comments to the resolved repository" \
   'gh issue comment <spec-number> -R "$repo"' "$playbook"
 assert_contains "Product shaping requires a Wayfinder map source" \
-  'A spec from Wayfinder must include a `## Product sources` section' "$playbook"
+  'A Wayfinder-derived spec must list its map URL and every decision issue represented in the spec under `## Product sources`' "$playbook"
+assert_contains "Product shaping keeps requirements in the approved body" \
+  'The source links are provenance only.' "$playbook"
 assert_contains "Product shaping starts only after the marker exists" \
-  'Do not start implementation before the marker exists.' "$playbook"
+  'Do not start implementation before the trusted marker exists' "$playbook"
 assert_contains "Product shaping publishes an unapproved draft for a human" \
   'Publish the unapproved draft on the resolved tracker as `ready-for-human`, or leave it unlabeled.' "$playbook"
 assert_contains "Product shaping forbids premature agent readiness" \
   'Never apply `ready-for-agent` to an unapproved draft.' "$playbook"
-assert_contains "Product shaping applies agent readiness only after the marker" \
+assert_not_contains "Product shaping has no common post-approval agent readiness" \
   'Only after the marker exists may Product shaping replace `ready-for-human` with `ready-for-agent`.' "$playbook"
 assert_contains "Product shaping keeps Matt leaves stage-bound" \
-  'A Product shaping Matt leaf shapes only its named stage.' "$playbook"
-assert_contains "Product shaping keeps natural-language Matt reachability" \
-  'Natural-language reachability stays enabled.' "$playbook"
+  'Matt shapes product decisions only.' "$playbook"
+assert_contains "Product shaping keeps one natural-language router" \
+  'Natural-language requests always enter this playbook through `pstack-poteto-mode`' "$playbook"
 assert_contains "Product shaping routes one bounded feature to Feature" \
   'Route one bounded feature to **Feature**.' "$playbook"
 assert_contains "Product shaping routes standing sandbox programs to Orchestrate" \
@@ -100,6 +108,12 @@ assert_contains "Product shaping has a sandbox implementation-graph block" \
   '<!-- surface:sandbox -->' "$playbook"
 assert_contains "local Product shaping can create tracker tickets" \
   'For multi-ticket work, call **matt-to-tickets**' "$playbook"
+assert_contains "local Product shaping clears approved specs from human review" \
+  'Remove `ready-for-human` from every approved spec.' "$playbook"
+assert_contains "local Product shaping readies only a sole implementation spec" \
+  'When the approved spec itself is the sole implementation issue' "$playbook"
+assert_contains "local Product shaping leaves ticket readiness to Matt" \
+  'Let **matt-to-tickets** apply `ready-for-agent`' "$playbook"
 assert_contains "sandbox Product shaping stops Matt at the approved spec" \
   'stop Matt at the approved tracker spec' "$playbook"
 assert_contains "sandbox Product shaping does not create Matt tickets" \
@@ -108,13 +122,27 @@ assert_contains "sandbox Product shaping forbids a duplicate GitHub graph" \
   'Do not publish an implementation dependency graph there.' "$playbook"
 assert_contains "sandbox Product shaping makes Orchestrate derive the sole graph" \
   'derives the sole implementation task graph' "$playbook"
+assert_contains "sandbox Product shaping removes human readiness after approval" \
+  'Remove `ready-for-human` from the approved spec.' "$playbook"
+assert_contains "sandbox Product shaping never queues the spec for an agent" \
+  'Never apply `ready-for-agent` to the spec.' "$playbook"
+assert_contains "sandbox Product shaping names Beads as the only implementation queue" \
+  'The Beads graph is the only implementation queue.' "$playbook"
 
 assert_contains "Orchestrate reads the approved spec body and comments" \
   'Read its full body and every comment.' "$orchestrate"
-assert_contains "Orchestrate follows a linked Wayfinder map" \
-  'A spec from Wayfinder must contain a `## Product sources` section' "$orchestrate"
-assert_contains "Orchestrate reads required closed decision tickets" \
-  'For every in-scope child, query the issue and its full comments.' "$orchestrate"
+assert_contains "Orchestrate requires a mapped spec source list" \
+  'A Wayfinder-derived spec must contain `## Product sources`.' "$orchestrate"
+assert_contains "Orchestrate reads each listed decision issue" \
+  'For every decision issue in the approved source list' "$orchestrate"
+assert_contains "Orchestrate treats the hashed source list as admission authority" \
+  'exact product source list the admission authority' "$orchestrate"
+assert_contains "Orchestrate derives requirements only from the approved body" \
+  'Derive requirements only from the approved spec body.' "$orchestrate"
+assert_contains "Orchestrate treats the map only as an index" \
+  'Treat the map as an index and the listed sources as provenance only.' "$orchestrate"
+assert_contains "Orchestrate does not derive sources from later map state" \
+  "Do not discover admission sources from the map's current children" "$orchestrate"
 assert_contains "Orchestrate requires the shared approval marker" \
   'Approved-Spec-Body-SHA256: <hash>' "$orchestrate"
 assert_contains "Orchestrate invokes the installed helper by absolute path" \
@@ -123,34 +151,38 @@ assert_contains "Orchestrate keeps the target repository as cwd" \
   'Keep the target repository as the current' "$orchestrate"
 assert_contains "Orchestrate resolves one GitHub repository" \
   'gh repo view --json nameWithOwner --jq .nameWithOwner' "$orchestrate"
-assert_contains "Orchestrate compares the newest marker with the current hash" \
-  'newest exact `Approved-Spec-Body-SHA256: <hash>` marker must equal the' "$orchestrate"
-assert_contains "Orchestrate rejects a stale approval marker" \
-  'A missing or stale marker rejects admission.' "$orchestrate"
-assert_contains "Orchestrate queries every native map child" \
-  'query all native sub-issues with the paginated `sub_issues` API' "$orchestrate"
-assert_contains "Orchestrate supports the complete fallback checklist" \
-  'Use every linked checklist child' "$orchestrate"
+assert_contains "Orchestrate compares the newest trusted marker with the current hash" \
+  'The newest trusted marker must equal the current body hash.' "$orchestrate"
+assert_contains "Orchestrate rejects a stale trusted approval marker" \
+  'A missing or stale trusted marker rejects admission.' "$orchestrate"
+assert_contains "Orchestrate ignores untrusted marker-shaped comments" \
+  'Ignore marker-shaped comments from untrusted logins.' "$orchestrate"
 assert_contains "Orchestrate rejects unresolved decisions" \
-  'Reject open children' "$orchestrate"
+  'Reject an open issue' "$orchestrate"
 assert_contains "Orchestrate rejects non-completed closure reasons" \
-  '`NOT_PLANNED` closure, duplicate closure' "$orchestrate"
+  'a `NOT_PLANNED` closure' "$orchestrate"
 assert_contains "Orchestrate requires a non-empty resolution" \
-  'a non-empty resolution comment whose first line is' "$orchestrate"
+  'one marked, non-empty resolution whose first line is' "$orchestrate"
 assert_contains "Orchestrate keeps unmapped bounded specs valid" \
   'Keep bounded specs without a map valid.' "$orchestrate"
 assert_contains "Orchestrate rejects in-scope fog" \
-  'under `Not yet specified`' "$orchestrate"
+  '`Not yet specified` section at initial admission' "$orchestrate"
 assert_contains "Orchestrate keeps one Beads implementation graph" \
   'one implementation task graph.' "$orchestrate"
-assert_contains "Orchestrate derives tasks from product sources and code" \
-  'approved spec, its product sources, and' "$orchestrate"
-assert_contains "Orchestrate briefs identify their product sources" \
-  'SOURCE       approved spec URL and relevant closed decision issue URLs' "$orchestrate"
+assert_contains "Orchestrate derives tasks from the approved spec and code" \
+  'implementation breakdown from the approved spec and that exploration' "$orchestrate"
+assert_contains "Orchestrate does not derive work from provenance" \
+  'Product sources preserve traceability and do not add work.' "$orchestrate"
+assert_contains "Orchestrate briefs identify exact approved product sources" \
+  'SOURCE       approved spec URL and relevant URLs from the exact approved product source list' "$orchestrate"
 assert_contains "Orchestrate briefs keep complete execution context" \
   'CONTEXT      files, PRs, and complete upstream reports needed by this task' "$orchestrate"
 assert_contains "Orchestrate records the approved hash on Beads tasks" \
-  '--description "APPROVED_SPEC_SHA256 <hash>' "$orchestrate"
+  "printf 'APPROVED_SPEC_SHA256 %s" "$orchestrate"
+assert_contains "Orchestrate records the explicit spec URL on Beads tasks" \
+  'SPEC %s' "$orchestrate"
+assert_contains "Orchestrate writes Beads descriptions through stdin" \
+  '--body-file -' "$orchestrate"
 assert_contains "Orchestrate revalidates before graph mutations" \
   'any Beads graph mutation' "$orchestrate"
 assert_contains "Orchestrate revalidates before new children" \
@@ -187,6 +219,16 @@ assert_contains "the tracker resolves repository operations dynamically" \
   'repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)' "$tracker"
 assert_contains "the tracker records the exact approval marker" \
   "printf 'Approved-Spec-Body-SHA256: %s" "$tracker"
+assert_contains "the tracker names its trusted product approver" \
+  'Trusted product approver GitHub logins: `mauricedesaxe`' "$tracker"
+assert_contains "the tracker checks the authenticated approval login" \
+  'approver=$(gh api user --jq .login)' "$tracker"
+assert_contains "the tracker filters approval markers by author login" \
+  'select(.user.login as $login | $trusted | index($login))' "$tracker"
+assert_contains "CLAUDE.md allows repo tracker config to define trusted approvers" \
+  'trusted product approver GitHub logins from one of these' "$claude_md"
+assert_contains "CLAUDE.md shows trusted approvers in a machine-local note" \
+  'trusted product approver GitHub logins: `alexlazar`, `productowner`' "$claude_md"
 assert_contains "the tracker invokes the helper by absolute path" \
   'hash_helper=/absolute/path/to/pstack-poteto-mode/scripts/spec-body-hash.sh' "$tracker"
 assert_contains "the tracker keeps the target repository as cwd" \
@@ -197,6 +239,14 @@ assert_contains "the tracker targets issue commands to one repository" \
   'gh issue comment "$spec" -R "$repo"' "$tracker"
 assert_contains "the tracker posts exact Wayfinder claim comments" \
   "printf 'Wayfinder-Claim: %s" "$tracker"
+assert_contains "the tracker accepts an exposed runtime claim ID" \
+  'claim_id=${WAYFINDER_SESSION_ID:-}' "$tracker"
+assert_contains "the tracker reads a kernel UUID on Linux" \
+  'IFS= read -r claim_id </proc/sys/kernel/random/uuid' "$tracker"
+assert_contains "the tracker generates a UUID outside Linux" \
+  'claim_id=$(uuidgen) || exit 1' "$tracker"
+assert_contains "the tracker fails closed without a safe claim generator" \
+  'Stop before posting a claim when no source produces a safe identifier.' "$tracker"
 assert_contains "the tracker fetches claim comments through the resolved repository" \
   'repos/$repo/issues/<number>/comments?per_page=100' "$tracker"
 assert_contains "the tracker chooses the earliest valid claim" \
@@ -213,7 +263,7 @@ fi
 assert_not_contains "the tracker has no hardcoded API repository" \
   'repos/mauricedesaxe/' "$tracker"
 assert_contains "the tracker invalidates approval after a body edit" \
-  'A later body edit makes' "$tracker"
+  'body edit makes approval stale' "$tracker"
 assert_not_contains "Product shaping never routes to the absent setup skill" \
   '/setup-matt-pocock-skills' "$playbook"
 
@@ -223,8 +273,10 @@ for tracker_leaf in "$wayfinder" "$to_spec" "$to_tickets"; do
 done
 assert_contains "matt-to-spec publishes an unapproved draft" \
   'publish the spec to the project issue tracker as an unapproved draft' "$to_spec"
-assert_contains "matt-to-spec reserves agent readiness for the approval marker" \
-  'may apply `ready-for-agent` only after the approved-body marker exists' "$to_spec"
+assert_contains "matt-to-spec delegates readiness to Product shaping" \
+  'Product shaping owns approval and readiness.' "$to_spec"
+assert_not_contains "matt-to-spec does not grant post-approval readiness" \
+  'may apply `ready-for-agent`' "$to_spec"
 assert_not_contains "matt-to-spec has no premature ready-for-agent instruction" \
   'Apply the `ready-for-agent` triage label - no need for additional triage.' "$to_spec"
 assert_contains "matt-wayfinder requires a server-ordered unique claim identifier" \
@@ -237,8 +289,20 @@ assert_contains "matt-wayfinder defines the losing-session action" \
   'A losing session releases its own claim, skips the ticket, and refreshes the frontier.' "$wayfinder"
 assert_contains "matt-wayfinder requires a marked non-empty resolution" \
   'whose first line is `Wayfinder-Resolution:`' "$wayfinder"
-assert_contains "matt-to-spec links a Wayfinder map in Product sources" \
-  'If Wayfinder produced the source material, include `## Product sources` and link its map.' "$to_spec"
+assert_not_contains "matt-wayfinder cannot carry implementation in notes" \
+  'carrying execution into the map itself' "$wayfinder"
+assert_contains "matt-wayfinder keeps notes out of implementation" \
+  'Notes cannot carry implementation into the map.' "$wayfinder"
+assert_contains "matt-to-spec lists every Wayfinder source" \
+  'Link its map and every decision issue represented in the spec.' "$to_spec"
+assert_contains "matt-to-spec makes the exact source list authoritative" \
+  'This exact list becomes authoritative when Product shaping hashes the approved body.' "$to_spec"
+assert_contains "matt-to-spec copies requirements into the approved body" \
+  'Copy every settled requirement into the spec body because source links are provenance only.' "$to_spec"
+assert_contains "matt-to-tickets requires an approved spec" \
+  'Require an approved tracker spec reference.' "$to_tickets"
+assert_contains "matt-domain-modeling follows the repository ADR policy" \
+  "Follow the repository's ADR policy." "$HARNESS_SOURCE/skills/matt-domain-modeling/ADR-FORMAT.md"
 if [ -x "$hash_helper" ]; then
   pass "the shared body hash helper is executable"
 else
@@ -255,6 +319,17 @@ for contract in \
   'Never force'; do
   assert_contains "the Beads README carries '$contract'" "$contract" "$beads_readme"
 done
+assert_contains "README documents the full-folder skills hash" \
+  '`computedHash` for the full pristine skill folder' "$readme"
+assert_contains "README puts Matt adaptation after the pristine hash check" \
+  'prefix rewrite and Matt adaptations run only after' "$readme"
+assert_contains "README documents the Matt adaptation test" \
+  'bash test/matt-adaptation.sh' "$readme"
+assert_contains "README documents the spec body hash test" \
+  'bash test/spec-body-hash.sh' "$readme"
+assert_not_contains "README drops the stale nudge rule" \
+  "\"nudge, don't nag, don't auto-run\"" "$readme"
+
 if LC_ALL=C grep -q '[^ -~[:space:]]' "$beads_readme"; then
   fail "the Beads README stays ASCII"
 else
@@ -275,6 +350,10 @@ for vendored in "$HARNESS_SOURCE"/skills/matt-*/SKILL.md; do
   else
     assert_contains "$name cannot route implementation" \
       'It must not choose, start, or route implementation.' "$vendored"
+    assert_contains "$name routes direct selection through Product shaping" \
+      'If this leaf was selected directly, invoke that playbook first.' "$vendored"
+    assert_contains "$name is described as an internal Product shaping stage" \
+      'description: "Internal ' "$vendored"
   fi
 done
 

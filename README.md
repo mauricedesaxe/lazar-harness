@@ -133,7 +133,9 @@ test/
   comment-lint.sh           drives comment parsing, hooks, and diff reconstruction
   complexity-lint.sh        drives analyzer parsing and repository-local tool lookup
   install-smoke.sh          runs install.sh under a temp HOME, asserts the tree
+  matt-adaptation.sh        pins deterministic Matt adaptations and rejects upstream drift
   product-shaping.sh        pins the product-shaping route and its single implementation graph
+  spec-body-hash.sh         pins fail-closed hashing of the published tracker spec body
   enforce-jj.sh             drives the hook with synthetic PreToolUse payloads
   opencode-comment-lint.sh  drives the OpenCode plugin against a temporary HOME
 ```
@@ -261,7 +263,9 @@ one diff and neither is a copy of the other. `install.sh` carries the reasoning 
 Skills need to know which tracker owns a repo. Where the repo can't carry that itself, they keep
 a note per repo at `~/.lazar-harness/repos/<host>/<owner>/<repo>.md`. Nothing installs these —
 a skill writes one the first and only time it has to ask, and reads it forever after.
-`CLAUDE.md` carries the resolution order and the note's format.
+`CLAUDE.md` carries the resolution order and the note's format. Product shaping also reads trusted
+product approver GitHub logins from the repo tracker config. Repos without that config put the same
+setting in their machine-local tracker note.
 
 ## Vendored skills
 
@@ -287,11 +291,11 @@ vendor reverts the edit:
 ```
 
 `skills-lock.json` pins each skill's source repository, its path within that repository, and the
-content hash of its `SKILL.md`. Without `--update`, the script fetches upstream and refuses to
-write anything if a pinned `SKILL.md` no longer hashes to what it pinned, so a re-vendor either
-reproduces those prompts or tells you upstream moved. A skill's supporting files are not covered
-by that hash — they are pinned only by being committed here, where a re-vendor shows any upstream
-change to them as a diff.
+`skills@1.5.15` `computedHash` for the full pristine skill folder. The hash covers `SKILL.md` and
+the supporting files returned by the skills CLI. Licenses that this script fetches separately are
+outside that hash. Without `--update`, the script checks the pristine folders and refuses to write
+when any pinned folder has moved. The prefix rewrite and Matt adaptations run only after that
+pristine hash check. A re-vendor either reproduces the adapted folders or reports upstream drift.
 
 The harness owns Plannotator's skill definitions, not its executable or runtime plugins. Install
 the `plannotator` binary separately on machines that invoke these skills. Sandbox images need the
@@ -329,9 +333,10 @@ flag keeps it. It also reads `SKILL.md` alone, so a supporting file is out of it
 No vendored `SKILL.md` documents the flag today. `test/model-invocation.sh` pins the
 frontmatter cut on a fixture instead, along with leaving an explicit `false` alone.
 
-Each skill still gates itself in its own instructions, and `CLAUDE.md`'s "nudge, don't nag, don't
-auto-run" rule already covers this class of skill. If a specific skill turns out to need the guard
-back, the fix is to keep the lock on that one rather than to restore it wholesale.
+Each selected Matt leaf stays model-reachable as an internal Product shaping stage.
+`pstack-poteto-mode` is the sole natural-language router. A directly selected leaf invokes Product
+shaping first and resumes at its named stage. Explicit `/matt-*` invocation remains available. If a
+specific skill needs the guard back, keep the lock on that skill instead of restoring it wholesale.
 
 ### User-only `/bro` across runtimes
 
@@ -418,6 +423,8 @@ the licence belongs next to the text it covers.
 
 ```sh
 bash test/install-smoke.sh
+bash test/matt-adaptation.sh
+bash test/spec-body-hash.sh
 bash test/enforce-jj.sh
 bash test/comment-lint.sh
 bash test/complexity-lint.sh

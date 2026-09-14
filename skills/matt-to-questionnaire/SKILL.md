@@ -1,11 +1,11 @@
 ---
 name: matt-to-questionnaire
-description: Turn a decision you can't fully answer into a questionnaire for someone else to fill in.
+description: "Internal Product shaping stage that asks a stakeholder for required product facts or decisions."
 ---
 
 ## Stage boundary
 
-This Matt leaf performs only its named stage. It must not choose, start, or route implementation. Product shaping passes product decisions to P stack.
+This Matt leaf performs only the to-questionnaire stage. It must not choose, start, or route implementation. Natural-language and explicit `/matt-to-questionnaire` requests enter the pstack-poteto-mode Product shaping playbook. If this leaf was selected directly, invoke that playbook first. Resume at the to-questionnaire stage only when that playbook's installed-surface rules permit it. Product-decision prototypes before approval use Matt. Implementation experiments after approval use P stack.
 
 Turn something the user can't answer alone into a **questionnaire**: a Markdown document they hand to one person to fill in async, or fill out together over a meeting. The recipient holds knowledge the user lacks; the questionnaire pulls it out of them.
 

@@ -1,11 +1,11 @@
 ---
 name: matt-grilling
-description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
+description: "Internal Product shaping stage that interviews the user until the product decisions are clear."
 ---
 
 ## Stage boundary
 
-This Matt leaf performs only its named stage. It must not choose, start, or route implementation. Product shaping passes product decisions to P stack.
+This Matt leaf performs only the grilling stage. It must not choose, start, or route implementation. Natural-language and explicit `/matt-grilling` requests enter the pstack-poteto-mode Product shaping playbook. If this leaf was selected directly, invoke that playbook first. Resume at the grilling stage only when that playbook's installed-surface rules permit it. Product-decision prototypes before approval use Matt. Implementation experiments after approval use P stack.
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 

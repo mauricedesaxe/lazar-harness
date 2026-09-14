@@ -2,6 +2,8 @@
 
 Issues for this repo live in **GitHub Issues**, on `mauricedesaxe/lazar-harness`.
 
+- Trusted product approver GitHub logins: `mauricedesaxe`
+
 Resolve the repository once before any tracker operation:
 
 ```sh
@@ -35,6 +37,8 @@ hash_helper=/absolute/path/to/pstack-poteto-mode/scripts/spec-body-hash.sh
 cd "$target_repo"
 body_sha=$("$hash_helper" "$spec")
 repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+approver=$(gh api user --jq .login)
+test "$approver" = mauricedesaxe
 printf 'Approved-Spec-Body-SHA256: %s\n' "$body_sha" | \
   gh issue comment "$spec" -R "$repo" --body-file -
 ```
@@ -46,15 +50,20 @@ A failed fetch, malformed response, empty body, or hash failure exits nonzero an
 A fresh Orchestrate session runs the same helper. It fetches all comments in server order:
 
 ```sh
-marker=$(gh api --paginate "repos/$repo/issues/$spec/comments?per_page=100" | jq -rs '
-  [.[][] | .body
+marker=$(gh api --paginate "repos/$repo/issues/$spec/comments?per_page=100" | jq -rs \
+  --argjson trusted '["mauricedesaxe"]' '
+  [.[][]
+   | select(.user.login as $login | $trusted | index($login))
+   | .body
    | select(test("\\AApproved-Spec-Body-SHA256: [0-9a-f]{64}\\z"))]
   | last // empty
 ')
 ```
 
-The newest exact marker must equal `Approved-Spec-Body-SHA256: $body_sha`. A later body edit makes
-approval stale. Product shaping must obtain approval again and post a new marker.
+The newest exact marker from a trusted product approver must equal
+`Approved-Spec-Body-SHA256: $body_sha`. Ignore marker-shaped comments from other authors. A later
+body edit makes approval stale. Product shaping must obtain approval again and post a new trusted
+marker.
 
 ## Wayfinding operations
 
@@ -103,11 +112,25 @@ Use this sequence:
    If the native child endpoint is unavailable, read every linked item under `## Decision issues`.
    Keep open children with no open blockers in the frontier.
 
-5. Claim a frontier issue with a session-unique identifier. The runtime must supply
-   `WAYFINDER_SESSION_ID`. Post the exact claim before work:
+5. Claim a frontier issue with one session-unique identifier. Use the runtime session ID when
+   `WAYFINDER_SESSION_ID` is exposed. Otherwise, read a kernel UUID on Linux or generate one with
+   `uuidgen`. Stop before posting a claim when no source produces a safe identifier. Keep `claim_id`
+   unchanged through the claim and release command sequence:
 
    ```sh
-   claim_id=${WAYFINDER_SESSION_ID:?a session-unique identifier is required}
+   claim_id=${WAYFINDER_SESSION_ID:-}
+   if [ -z "$claim_id" ]; then
+     if [ -r /proc/sys/kernel/random/uuid ]; then
+       IFS= read -r claim_id </proc/sys/kernel/random/uuid
+     elif command -v uuidgen >/dev/null 2>&1; then
+       claim_id=$(uuidgen) || exit 1
+     else
+       exit 1
+     fi
+   fi
+   case "$claim_id" in
+     ''|*[!A-Za-z0-9._:-]*) exit 1 ;;
+   esac
    printf 'Wayfinder-Claim: %s\n' "$claim_id" | \
      gh issue comment <number> -R "$repo" --body-file -
    ```
