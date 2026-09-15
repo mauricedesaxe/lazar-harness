@@ -10,11 +10,15 @@ writer.
 `check [files...]` reads a Claude Code hook payload from stdin, or file paths
 from argv, and runs the harness rule table plus repo linters over the files.
 The rule table is data: debug prints and bare excepts block, trailing
-whitespace and unreferenced TODOs advise. File length is two-tier: advisory
-past 500 lines, blocking past 1000, source files only, tests exempt. Repo
-lint configs win when they exist; otherwise the harness baseline applies via
-`--config`. Linter findings are advisory. Exit codes: 0 clean, 1 advisory,
-2 blocking, 3 usage error.
+whitespace and unreferenced TODOs advise. Length rules are two-tier and
+test-exempt: files advise past 500 lines and block past 1000; functions
+advise past 60 and block past 100; classes advise past 200 and block past
+400. Span detection is indentation for Python and brace-depth for the
+brace languages, so strings containing lone braces can fool it by a line
+or two; it is a length heuristic, not a parser. Repo lint configs win when
+they exist; otherwise the harness baseline applies via `--config`. Linter
+findings are advisory. Exit codes: 0 clean, 1 advisory, 2 blocking,
+3 usage error.
 
 `doctor [repo-root]` audits a repo against the baselines: are the baseline
 files installed, does the repo config extend the baseline, which rule
