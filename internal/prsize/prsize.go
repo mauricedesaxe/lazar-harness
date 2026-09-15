@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -42,6 +43,12 @@ func (s Summary) String() string {
 	}
 	return b.String()
 }
+
+// notCounted marks paths that never reach the budget: docs and data files.
+// The owner policy is logic plus tests only.
+var notCounted = regexp.MustCompile(
+	`\.(json|md|markdown|mdx|rst|txt|adoc|lock|snap)$` +
+		`|(^|/)(docs?|changelog)(/|$)`)
 
 func Run(dir string, opts Options, stdin io.Reader, stdout io.Writer) (Summary, int, error) {
 	if opts.Limit <= 0 {
@@ -124,7 +131,7 @@ func measure(dir, base string, limit int) (Summary, error) {
 		if len(parts) != 3 || parts[0] == "-" {
 			continue
 		}
-		if rules.Excluded(parts[2]) {
+		if rules.Excluded(parts[2]) || notCounted.MatchString(parts[2]) {
 			continue
 		}
 		adds, _ := strconv.Atoi(parts[0])

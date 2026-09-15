@@ -39,9 +39,11 @@ files are skipped. Files under an excluded path are skipped entirely:
 plus `*.lock`, `*.min.js`, `*.min.css`, `*.d.ts`, `*.snap`, `*.pb.go`, and
 `*_pb2.py` anywhere in the path.
 
-Everything else counts the same: source, tests, markdown, and non-lockfile
-JSON. Deleted files contribute their deletion count. Renames contribute their
-net diff.
+Only logic and tests count, per owner policy. Docs and data never do:
+`*.md`, `*.markdown`, `*.mdx`, `*.rst`, `*.txt`, `*.adoc`, `*.json`,
+`*.lock`, `*.snap`, and anything in a `docs/`, `doc/`, or `changelog/`
+directory. Deleted files contribute their deletion count. Renames contribute
+their net diff.
 
 ## Baselines
 

@@ -156,3 +156,18 @@ func TestBaseDetectionFallsBackToMain(t *testing.T) {
 		t.Fatalf("want main as detected base, got %s", base)
 	}
 }
+
+func TestDocsAndJSONDoNotCount(t *testing.T) {
+	dir := fixtureRepo(t)
+	writeFile(t, dir, "README.md", strings.Repeat("words\n", 100), "docs")
+	writeFile(t, dir, "pkg/data.json", strings.Repeat("{\"k\": 1}\n", 100), "data")
+	writeFile(t, dir, "src/logic.py", strings.Repeat("x = 1\n", 5), "logic")
+	var out strings.Builder
+	summary, code, err := Run(dir, Options{Base: "main", Limit: 10}, strings.NewReader(""), &out)
+	if err != nil || code != 0 {
+		t.Fatalf("docs and JSON must not count, got exit %d err %v\n%s", code, err, out.String())
+	}
+	if summary.Total != 5 {
+		t.Fatalf("want only 5 logic lines counted, got %d", summary.Total)
+	}
+}
