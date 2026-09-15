@@ -293,12 +293,96 @@ fn class_decl(ext: &str) -> Option<Regex> {
     Regex::new(pattern).ok()
 }
 
+/// Braces inside string literals and comments are blanked before the depth
+/// walk, so a lone `{` in a format string cannot swallow a span.
+fn mask_span_noise(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = bytes.to_vec();
+    let mut i = 0usize;
+    let mut quote: Option<u8> = None;
+    let mut line_comment = false;
+    let mut block_comment = false;
+    while i < bytes.len() {
+        let ch = bytes[i];
+        let next = bytes.get(i + 1).copied();
+        if line_comment {
+            if ch == b'\n' {
+                line_comment = false;
+            } else {
+                out[i] = b' ';
+            }
+            i += 1;
+            continue;
+        }
+        if block_comment {
+            out[i] = b' ';
+            if ch == b'*' && next == Some(b'/') {
+                out[i + 1] = b' ';
+                block_comment = false;
+                i += 2;
+                continue;
+            }
+            if ch == b'\n' {
+                out[i] = b'\n';
+            }
+            i += 1;
+            continue;
+        }
+        if let Some(q) = quote {
+            if ch == b'\\' {
+                out[i] = b' ';
+                if let Some(n) = next
+                    && n != b'\n'
+                {
+                    out[i + 1] = b' ';
+                }
+                i += 2;
+                continue;
+            }
+            if ch == q {
+                quote = None;
+            }
+            if ch != b'\n' {
+                out[i] = b' ';
+            }
+            i += 1;
+            continue;
+        }
+        match ch {
+            b'/' if next == Some(b'/') => {
+                line_comment = true;
+                out[i] = b' ';
+                if next.is_some() {
+                    out[i + 1] = b' ';
+                }
+                i += 2;
+                continue;
+            }
+            b'/' if next == Some(b'*') => {
+                block_comment = true;
+                out[i] = b' ';
+                out[i + 1] = b' ';
+                i += 2;
+                continue;
+            }
+            b'"' | b'\'' | b'`' => {
+                quote = Some(ch);
+                out[i] = b' ';
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    String::from_utf8(out).unwrap_or_else(|_| text.to_string())
+}
+
 /// Brace languages share one walker: a declaration opens a span at the depth
 /// its body starts, and the span closes when the depth drops back. A
 /// declaration whose brace sits on a later line (wrapped signatures) is held
-/// open for up to ten lines. Braces inside string literals can wobble the
-/// depth mid-span; balanced strings net out, so spans still end correctly.
+/// open for up to ten lines.
 fn brace_spans(text: &str, fn_re: &Regex, class_re: &Regex) -> Vec<Span> {
+    let masked = mask_span_noise(text);
+    let text = masked.as_str();
     let mut spans = Vec::new();
     let mut open: Vec<(usize, usize, SpanKind)> = Vec::new();
     let mut awaiting: Option<(usize, SpanKind)> = None;
@@ -618,5 +702,61 @@ mod span_tests {
         )
         .unwrap();
         assert!(span_findings(&[path.to_string_lossy().into()], FUNCTION_LENGTH_RULE).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod mask_tests {
+    use super::*;
+
+    #[test]
+    fn lone_brace_in_string_does_not_break_spans() {
+        let body =
+            "fn small() {\n    let json = \"{\";\n".to_string() + &"    x();\n".repeat(110) + "}\n";
+        let dir = std::env::temp_dir().join("hc-mask-a");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("a.rs");
+        fs::write(&path, body).unwrap();
+        let hit: Vec<_> = Engine::default()
+            .run(&[path.to_string_lossy().into()])
+            .into_iter()
+            .filter(|f| f.rule == FUNCTION_LENGTH_RULE)
+            .collect();
+        assert_eq!(hit.len(), 1, "{hit:?}");
+        assert_eq!(hit[0].severity, Severity::Blocking);
+    }
+
+    #[test]
+    fn closing_brace_in_string_does_not_end_span_early() {
+        let body =
+            "fn big() {\n    let close = \"}\";\n".to_string() + &"    x();\n".repeat(110) + "}\n";
+        let dir = std::env::temp_dir().join("hc-mask-b");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("b.rs");
+        fs::write(&path, body).unwrap();
+        let hit: Vec<_> = Engine::default()
+            .run(&[path.to_string_lossy().into()])
+            .into_iter()
+            .filter(|f| f.rule == FUNCTION_LENGTH_RULE)
+            .collect();
+        assert_eq!(hit.len(), 1, "{hit:?}");
+    }
+
+    #[test]
+    fn commented_braces_do_not_break_spans() {
+        let body = "fn a() {\n    // { open\n    // } close\n".to_string()
+            + &"    x();\n".repeat(70)
+            + "}\n";
+        let dir = std::env::temp_dir().join("hc-mask-c");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("c.rs");
+        fs::write(&path, body).unwrap();
+        let hit: Vec<_> = Engine::default()
+            .run(&[path.to_string_lossy().into()])
+            .into_iter()
+            .filter(|f| f.rule == FUNCTION_LENGTH_RULE)
+            .collect();
+        assert_eq!(hit.len(), 1, "{hit:?}");
+        assert_eq!(hit[0].severity, Severity::Advisory);
     }
 }

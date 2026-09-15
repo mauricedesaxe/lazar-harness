@@ -126,9 +126,9 @@ fn cmd_pr_size(args: &[String]) -> i32 {
             "--limit" => {
                 i += 1;
                 match args.get(i).and_then(|v| v.parse::<usize>().ok()) {
-                    Some(n) => opts.limit = n,
-                    None => {
-                        eprintln!("--limit needs a number, got nothing parseable");
+                    Some(n) if n > 0 => opts.limit = n,
+                    _ => {
+                        eprintln!("--limit needs a number of at least 1");
                         return 3;
                     }
                 }
@@ -206,6 +206,11 @@ fn print_report(all: &[findings::Finding]) {
     let advisory = all.len() - blocking;
     println!("harness-check: {blocking} blocking, {advisory} advisory");
     if blocking > 0 {
+        // The PostToolUse hook feeds stderr back to the agent, so the
+        // specifics of what to fix travel on stderr, not the summary.
+        for f in all.iter().filter(|f| f.severity == Severity::Blocking) {
+            eprintln!("{}:{} [{}] {}", f.file, f.line, f.rule, f.message);
+        }
         eprintln!("harness-check: blocking findings must be fixed before continuing");
     }
 }

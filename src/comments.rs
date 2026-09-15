@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -34,43 +34,42 @@ struct Violation {
     snippet: String,
 }
 
+impl Comment {
+    fn into_violation(self) -> Violation {
+        Violation {
+            line: self.line,
+            snippet: self.first_line.chars().take(100).collect(),
+        }
+    }
+}
+
 /// lintPair reports prose comments present in the new text but not in the
-/// old one, as a multiset difference: a comment that moved or repeats is not
-/// re-flagged.
+/// old one, as an ordered multiset difference: a comment that moved or
+/// repeats is not re-flagged, and an added duplicate reports at its own
+/// line rather than the original's.
 fn lint_pair(file: &str, old_text: &str, new_text: &str) -> Vec<Violation> {
     let old = tokens_for(file, old_text);
     let new = tokens_for(file, new_text);
-    let mut counts: HashMap<&str, usize> = HashMap::new();
-    for token in &old {
-        *counts.entry(token).or_default() += 1;
+    // Ordered pairing: each new copy consumes the oldest unconsumed old
+    // copy of the same token, so an added duplicate reports at the new
+    // copy's line, not the original's.
+    let mut unmatched: HashMap<String, VecDeque<usize>> = HashMap::new();
+    for comment in &old {
+        unmatched
+            .entry(comment.token.clone())
+            .or_default()
+            .push_back(comment.line);
     }
     new.into_iter()
-        .filter(|token| match counts.get_mut(token.as_str()) {
-            Some(count) if *count > 0 => {
-                *count -= 1;
-                false
-            }
-            _ => true,
+        .filter(|comment| {
+            unmatched
+                .entry(comment.token.clone())
+                .or_default()
+                .pop_front()
+                .is_none()
         })
-        .map(|token| token_violation(new_text, &token))
+        .map(|comment| comment.into_violation())
         .collect()
-}
-
-fn token_violation(text: &str, token: &str) -> Violation {
-    let needle = normalized_first_line(token);
-    let line = text
-        .lines()
-        .position(|l| normalized_first_line(l).contains(&needle))
-        .map(|i| i + 1)
-        .unwrap_or(1);
-    Violation {
-        line,
-        snippet: token.chars().take(100).collect(),
-    }
-}
-
-fn normalized_first_line(line: &str) -> String {
-    line.trim().to_string()
 }
 
 struct Comment {
@@ -78,6 +77,7 @@ struct Comment {
     end_line: usize,
     snippet: String,
     token: String,
+    first_line: String,
     exempt: bool,
 }
 
@@ -108,11 +108,13 @@ fn make_comment(line: usize, raw: &str, end_line: usize, leading: bool) -> Comme
     let exempt = (line == 1 && raw.trim_start().starts_with("#!"))
         || directive().is_match(&token)
         || (leading && line <= LICENSE_HEADER_SCAN_LINES && license_re().is_match(raw));
+    let first_line = raw.lines().next().unwrap_or("").trim().to_string();
     Comment {
         line,
         end_line,
         snippet: raw.trim().to_string(),
         token,
+        first_line,
         exempt,
     }
 }
@@ -139,17 +141,23 @@ fn collapse_spaces(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn scan_c_style(text: &str) -> Vec<Comment> {
+fn scan_c_style(text: &str, rust: bool, javascript: bool) -> Vec<Comment> {
     let mut comments = Vec::new();
     let bytes = text.as_bytes();
     let mut i = 0usize;
     let mut line = 1usize;
     let mut quote: Option<u8> = None;
+    // JavaScript-only: a slash after certain tokens opens a regex literal,
+    // not a comment. Without this, /['"]/ style literals swallow comments.
+    let mut can_start_regex = true;
     while i < bytes.len() {
         let ch = bytes[i];
         let next = bytes.get(i + 1).copied();
         if let Some(q) = quote {
             if ch == b'\\' && q != b'`' {
+                if bytes.get(i + 1) == Some(&b'\n') {
+                    line += 1;
+                }
                 i += 2;
                 continue;
             }
@@ -164,6 +172,27 @@ fn scan_c_style(text: &str) -> Vec<Comment> {
         }
         match ch {
             b'\n' => line += 1,
+            b'\'' if rust => {
+                // A Rust apostrophe is a char literal when it closes within
+                // a few bytes ('a', '\n'), otherwise a lifetime like
+                // 'static, which must not enter quote state.
+                let closes = bytes.get(i + 1).copied().is_some_and(|n| {
+                    (n == b'\\' && bytes.get(i + 3) == Some(&b'\''))
+                        || (n != b'\\' && n != b'\n' && bytes.get(i + 2) == Some(&b'\''))
+                });
+                let lifetime = bytes
+                    .get(i + 1)
+                    .copied()
+                    .is_some_and(|n| n.is_ascii_alphabetic() || n == b'_')
+                    && !closes;
+                if !lifetime {
+                    if closes {
+                        i += if bytes[i + 1] == b'\\' { 4 } else { 3 };
+                        continue;
+                    }
+                    quote = Some(ch);
+                }
+            }
             b'"' | b'\'' | b'`' => quote = Some(ch),
             b'/' if next == Some(b'/') => {
                 let start = i;
@@ -175,6 +204,17 @@ fn scan_c_style(text: &str) -> Vec<Comment> {
                 let leading = text[..start].trim().is_empty();
                 comments.push(make_comment(start_line, raw, start_line, leading));
                 continue;
+            }
+            b'/' if javascript
+                && next != Some(b'/')
+                && next != Some(b'*')
+                && can_start_regex
+                && skip_regex(text, i).is_some() =>
+            {
+                let end = skip_regex(text, i).unwrap();
+                line += text[i..end].matches('\n').count();
+                can_start_regex = false;
+                i = end;
             }
             b'/' if next == Some(b'*') => {
                 let start = i;
@@ -195,6 +235,30 @@ fn scan_c_style(text: &str) -> Vec<Comment> {
         i += 1;
     }
     comments
+}
+
+fn skip_regex(text: &str, start: usize) -> Option<usize> {
+    let bytes = text.as_bytes();
+    let mut in_class = false;
+    let mut i = start + 1;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'\n' => return None,
+            b'\\' => i += 1,
+            b'[' => in_class = true,
+            b']' => in_class = false,
+            b'/' if !in_class => {
+                i += 1;
+                while i < bytes.len() && bytes[i].is_ascii_alphabetic() {
+                    i += 1;
+                }
+                return Some(i);
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    None
 }
 
 fn scan_python(text: &str) -> Vec<Comment> {
@@ -258,6 +322,7 @@ fn scan_python(text: &str) -> Vec<Comment> {
                 end_line: line_no,
                 snippet: token_text.trim().to_string(),
                 token: normalized_token(token_text),
+                first_line: token_text.trim().to_string(),
                 exempt,
             });
         }
@@ -266,19 +331,20 @@ fn scan_python(text: &str) -> Vec<Comment> {
     comments
 }
 
-fn tokens_for(file: &str, text: &str) -> Vec<String> {
+fn tokens_for(file: &str, text: &str) -> Vec<Comment> {
     let Some(lang) = lang_of(file) else {
         return vec![];
     };
     let license_end = leading_license_end(text, lang);
+    let rust = file.ends_with(".rs");
     let mut comments = match lang {
         Lang::Python => scan_python(text),
-        Lang::CStyle | Lang::JavaScript => scan_c_style(text),
+        Lang::CStyle | Lang::JavaScript => scan_c_style(text, rust, lang == Lang::JavaScript),
     };
     comments.retain(|c| {
         !c.exempt && c.line > license_end && !c.token.is_empty() && !allowed_comment(file, text, c)
     });
-    comments.into_iter().map(|c| c.token).collect()
+    comments
 }
 
 /// Native symbol docs are the allowed forms: an explicit `Why:` rationale,
@@ -517,5 +583,55 @@ mod tests {
     #[test]
     fn shebang_allowed() {
         assert!(violations("a.py", "", "#!/usr/bin/env python3\nx = 1\n").is_empty());
+    }
+}
+
+#[cfg(test)]
+mod regression_tests {
+    use super::*;
+
+    fn violations(file: &str, old: &str, new: &str) -> Vec<Violation> {
+        lint_pair(file, old, new)
+    }
+
+    #[test]
+    fn rust_lifetime_does_not_swallow_comments() {
+        let src = "fn main() {\n    let s: &'static str = \"a\";\n    // prose comment that must be flagged\n    let t = 'x';\n}\n";
+        let got = violations("a.rs", "", src);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert_eq!(got[0].line, 3);
+    }
+
+    #[test]
+    fn rust_char_literal_does_not_swallow_comments() {
+        let src = "fn main() {\n    let t = '|';\n    // flagged prose\n}\n";
+        let got = violations("a.rs", "", src);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert_eq!(got[0].line, 3);
+    }
+
+    #[test]
+    fn js_regex_literal_does_not_swallow_comments() {
+        let src = "const re = /['\"]/;\n// flagged prose\nconst x = 1;\n";
+        let got = violations("a.ts", "", src);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert_eq!(got[0].line, 2);
+    }
+
+    #[test]
+    fn multiline_block_comment_reports_its_start_line() {
+        let src = "fn a() {}\n/* line two\n   line three */\nfn b() {}\n";
+        let got = violations("a.rs", "", src);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert_eq!(got[0].line, 2);
+    }
+
+    #[test]
+    fn duplicate_comment_attributed_to_the_new_copy() {
+        let old = "// alpha\nfn a() {}\n";
+        let new = "// alpha\nfn a() {}\nfn b() {}\n// alpha\n";
+        let got = violations("a.rs", old, new);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert_eq!(got[0].line, 4);
     }
 }

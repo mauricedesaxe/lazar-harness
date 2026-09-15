@@ -52,7 +52,7 @@ pub struct RepoConfigs {
 /// unrelated pyproject still gets the harness baseline.
 pub fn detect(root: &str) -> RepoConfigs {
     let mut c = RepoConfigs::default();
-    for name in ["ruff.toml", ".ruff.toml"] {
+    for name in [".ruff.toml", "ruff.toml"] {
         let p = format!("{root}/{name}");
         if Path::new(&p).is_file() {
             c.ruff_config = Some(p);
