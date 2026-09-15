@@ -15,10 +15,16 @@ test-exempt: files advise past 500 lines and block past 1000; functions
 advise past 60 and block past 100; classes advise past 200 and block past
 400. Span detection is indentation for Python and brace-depth for the
 brace languages, so strings containing lone braces can fool it by a line
-or two; it is a length heuristic, not a parser. Repo lint configs win when
-they exist; otherwise the harness baseline applies via `--config`. Linter
-findings are advisory. Exit codes: 0 clean, 1 advisory, 2 blocking,
-3 usage error.
+or two; it is a length heuristic, not a parser.
+
+Comment lint blocks newly added prose comments in Rust, Go, TypeScript,
+JavaScript, and Python, comparing each file against its committed HEAD
+version with multiset subtraction so moved comments are not re-flagged.
+Shebangs, linter directives, license headers, `Why:` rationales, and native
+symbol docs are allowed; in Rust every `///` and `//!` counts as a native
+doc. Repo lint configs win when they exist; otherwise the harness baseline
+applies via `--config`. Linter findings are advisory. Exit codes: 0 clean,
+1 advisory, 2 blocking, 3 usage error.
 
 `doctor [repo-root]` audits a repo against the baselines: are the baseline
 files installed, does the repo config extend the baseline, which rule

@@ -1,3 +1,4 @@
+mod comments;
 mod doctor;
 mod findings;
 mod hook;
@@ -83,6 +84,7 @@ fn cmd_check(args: &[String]) -> i32 {
         let root = repo_root(&files[0]);
         let cfgs = resolve::detect(&root);
         all.extend(rules::Engine::default().run(&files));
+        all.extend(comments::check_files(&files));
         all.extend(resolve::linter_files(&cfgs, &opts, &files));
         all = dedupe(all);
     }
