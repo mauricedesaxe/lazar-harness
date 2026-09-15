@@ -7,3 +7,6 @@
 .beads/proxieddb/
 
 __pycache__/
+
+# Rust build output
+/target
