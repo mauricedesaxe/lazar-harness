@@ -2,6 +2,32 @@
 set -euo pipefail
 
 HARNESS_SOURCE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+# One invocation, whole harness. curl | bash hands the script a stdin and no
+# repository, so when the payload is not beside this script the script
+# materializes it into the cache and re-execs from there. The guard keeps a
+# re-exec from re-bootstrapping, and a repo checkout skips this entirely.
+if [ ! -f "$HARNESS_SOURCE/skills-manifest.txt" ] && [ -z "${HARNESS_BOOTSTRAPPED:-}" ]; then
+  bootstrap() {
+    local ref="${HARNESS_REF:-main}"
+    local cache="${XDG_CACHE_HOME:-$HOME/.cache}/lazar-harness/src-$ref"
+    local url="https://github.com/mauricedesaxe/lazar-harness/archive/$ref.tar.gz"
+    local tmp
+    tmp="$(mktemp -d)" || return 1
+    curl -fsSL "$url" -o "$tmp/src.tar.gz" || {
+      rm -rf "$tmp"
+      echo "install.sh: could not download the harness source ($url)." >&2
+      echo "  clone the repository and run ./install.sh --install instead." >&2
+      exit 1
+    }
+    rm -rf "$cache"
+    mkdir -p "$cache"
+    tar -xzf "$tmp/src.tar.gz" -C "$cache" --strip-components=1
+    rm -rf "$tmp"
+    exec env HARNESS_BOOTSTRAPPED=1 bash "$cache/install.sh" "$@"
+  }
+  bootstrap "$@"
+fi
 # Which environment the installed instructions are for, not which runtime reads them: Claude Code
 # and OpenCode both run on a laptop and both run inside a sandbox, and it is the environment that
 # decides whether the working copy is shared. A sandbox image build passes `sandbox` when it
@@ -49,6 +75,7 @@ OPENCODE_COMMANDS="$OPENCODE_HOME/commands"
 # name. It sits beside those notes under ~/.lazar-harness but in its own subdir: bin is the
 # installer's, repos/ is hand-edited, and replace_dir on bin leaves repos/ untouched.
 LAZAR_BIN="$HOME/.lazar-harness/bin"
+LAZAR_LINTERS="${XDG_CONFIG_HOME:-$HOME/.config}/lazar-harness/linters"
 
 # The harness manages only the skills it installs, never the whole skills tree. A skills root can
 # hold skills another tool owns (Newsjack drops ~30 under ~/.claude/skills and marks each
@@ -672,6 +699,60 @@ install_linters() {
   replace_dir "$LAZAR_BIN" "$HARNESS_SOURCE/bin"
 }
 
+# The static analysis binary. Acquisition order: a release build already in
+# the repository tree (development), then the pinned-or-latest GitHub release
+# for this platform with a checksum check, then cargo from the source the
+# installer itself bootstrapped. A machine that reaches none of the three
+# still gets the harness; the hooks that call the binary degrade to no-ops,
+# which is the same contract the linters have.
+install_harness_check() {
+  local dest="$LAZAR_BIN/harness-check" target tmp
+  if [ -x "$HARNESS_SOURCE/target/release/harness-check" ]; then
+    cp "$HARNESS_SOURCE/target/release/harness-check" "$dest"
+    return 0
+  fi
+  case "$(uname -s)/$(uname -m)" in
+    Darwin/arm64) target="aarch64-apple-darwin" ;;
+    Darwin/x86_64) target="x86_64-apple-darwin" ;;
+    Linux/x86_64) target="x86_64-unknown-linux-musl" ;;
+    Linux/aarch64) target="aarch64-unknown-linux-musl" ;;
+    *)
+      echo "install.sh: no harness-check build for $(uname -s)/$(uname -m); skipping the binary." >&2
+      return 0
+      ;;
+  esac
+  local version="${HARNESS_CHECK_VERSION:-latest}"
+  local base="https://github.com/mauricedesaxe/lazar-harness/releases"
+  local asset="harness-check-$target.tar.gz"
+  tmp="$(mktemp -d)"
+  if curl -fsSL "$base/$version/download/$asset" -o "$tmp/$asset" \
+    && curl -fsSL "$base/$version/download/sha256sums.txt" -o "$tmp/sha256sums.txt" \
+    && (cd "$tmp" && grep " $asset" sha256sums.txt | sha256sum -c -) \
+    && tar -xzf "$tmp/$asset" -C "$tmp"; then
+    cp "$tmp/harness-check" "$dest"
+    rm -rf "$tmp"
+    return 0
+  fi
+  rm -rf "$tmp"
+  if command -v cargo >/dev/null 2>&1; then
+    echo "install.sh: no release binary for $target; building from source." >&2
+    (cd "$HARNESS_SOURCE" && cargo build --release --quiet) || return 1
+    cp "$HARNESS_SOURCE/target/release/harness-check" "$dest"
+    return 0
+  fi
+  echo "install.sh: harness-check binary unavailable (no release for $target, no cargo)."
+  echo "  The harness works; edit-time checks stay dormant until a binary lands at $dest."
+  return 0
+}
+
+# The baseline lint configs doctor and the edit-time fallback read. They are
+# data, not binaries, so they ride the source rather than the release.
+install_baselines() {
+  mkdir -p "$LAZAR_LINTERS"
+  cp "$HARNESS_SOURCE/lint-baselines/ruff.toml" "$LAZAR_LINTERS/ruff.toml"
+  cp "$HARNESS_SOURCE/lint-baselines/oxlint.json" "$LAZAR_LINTERS/oxlint.json"
+}
+
 # The OpenCode write-time guard: a tool.execute.before plugin that shells out to the same
 # comment-lint core the Claude Code hook and the lazar-commit gate call, so §21 is enforced before a
 # write lands in OpenCode too, not only at commit. It reshapes OpenCode's tool args into the
@@ -700,7 +781,9 @@ write_claude_settings() {
     --arg matcher "$JJ_HOOK_MATCHER" \
     --arg command "$CLAUDE_HOOKS/enforce-jj.sh" \
     --arg lintmatcher "Edit|Write|MultiEdit" \
-    --arg lintcommand "$LAZAR_BIN/comment-lint claude-hook" '
+    --arg lintcommand "$LAZAR_BIN/comment-lint claude-hook" \
+    --arg checkmatcher "Edit|Write|MultiEdit" \
+    --arg checkcommand "$LAZAR_BIN/harness-check check" '
       def without_harness_hooks:
         [ .[] | .hooks = [ (.hooks // [])[]
               | select((.command // "") | (startswith($prefix) or startswith($binprefix)) | not) ]
@@ -712,6 +795,10 @@ write_claude_settings() {
         }, {
           matcher: $lintmatcher,
           hooks: [{ type: "command", command: $lintcommand }]
+        }])
+      | .hooks.PostToolUse = ((.hooks.PostToolUse // []) + [{
+          matcher: $checkmatcher,
+          hooks: [{ type: "command", command: $checkcommand }]
         }])
       | .hooks |= with_entries(select((.value | length) > 0))
     ' >"$staged" || {
@@ -817,6 +904,8 @@ install_opencode_plugin
 # The linter bin lands before the settings merge names comment-lint, so a failed merge never leaves
 # settings.json pointing at a PreToolUse command that was not written yet.
 install_linters
+install_harness_check
+install_baselines
 write_claude_settings
 install_hooks
 
