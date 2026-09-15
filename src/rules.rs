@@ -53,8 +53,17 @@ pub fn default_rules() -> Vec<Rule> {
             compiled: None,
         },
         Rule {
+            id: "rust-dbg".into(),
+            exts: exts(&[".rs"]),
+            pattern: r"\bdbg!\(".into(),
+            skip_tests: true,
+            severity: Severity::Blocking,
+            message: "dbg! is leftover debugging. Print deliberately or remove it.".into(),
+            compiled: None,
+        },
+        Rule {
             id: "trailing-whitespace".into(),
-            exts: exts(&[".py", ".ts", ".tsx", ".js", ".jsx", ".go"]),
+            exts: exts(&[".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs"]),
             pattern: r"[ \t]+$".into(),
             skip_tests: false,
             severity: Severity::Advisory,
@@ -63,7 +72,7 @@ pub fn default_rules() -> Vec<Rule> {
         },
         Rule {
             id: "todo-no-ref".into(),
-            exts: exts(&[".py", ".ts", ".tsx", ".js", ".jsx", ".go"]),
+            exts: exts(&[".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs"]),
             pattern: r"\b(TODO|FIXME)\b".into(),
             skip_tests: false,
             severity: Severity::Advisory,
@@ -112,18 +121,22 @@ fn issue_ref() -> &'static Regex {
     RE.get_or_init(|| Regex::new(r"#\d+|[A-Za-z][A-Za-z0-9]*-\w*\d[\w-]*|https?://").unwrap())
 }
 
-const CODE_EXTS: &[&str] = &[".py", ".ts", ".tsx", ".js", ".jsx", ".go"];
+const CODE_EXTS: &[&str] = &[".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs"];
 
 pub struct Engine {
     pub rules: Vec<Rule>,
-    pub max_file_len: usize,
+    /// File length where the nudge starts. Tests are exempt.
+    pub advisory_len: usize,
+    /// File length that blocks. The hard limit, also test-exempt.
+    pub blocking_len: usize,
 }
 
 impl Default for Engine {
     fn default() -> Self {
         Engine {
             rules: default_rules(),
-            max_file_len: 800,
+            advisory_len: 500,
+            blocking_len: 1000,
         }
     }
 }
@@ -168,22 +181,25 @@ impl Engine {
                 }
             }
         }
-        if self.max_file_len > 0
-            && text.lines().count() > self.max_file_len
-            && !testing
-            && CODE_EXTS.contains(&ext.as_str())
-        {
-            out.push(Finding {
-                file: file.into(),
-                line: text.lines().count(),
-                rule: FILE_LENGTH_RULE.into(),
-                severity: Severity::Advisory,
-                message: format!(
-                    "File is over {} lines. Consider splitting it.",
-                    self.max_file_len
-                ),
-                source: "harness",
-            });
+        let lines = text.lines().count();
+        if lines > 0 && !testing && CODE_EXTS.contains(&ext.as_str()) {
+            let (severity, limit) = if self.blocking_len > 0 && lines > self.blocking_len {
+                (Severity::Blocking, self.blocking_len)
+            } else if self.advisory_len > 0 && lines > self.advisory_len {
+                (Severity::Advisory, self.advisory_len)
+            } else {
+                (Severity::Advisory, 0)
+            };
+            if limit > 0 {
+                out.push(Finding {
+                    file: file.into(),
+                    line: lines,
+                    rule: FILE_LENGTH_RULE.into(),
+                    severity,
+                    message: format!("File is over {limit} lines. Consider splitting it."),
+                    source: "harness",
+                });
+            }
         }
         out
     }
@@ -283,9 +299,33 @@ mod tests {
         let dir = std::env::temp_dir().join("hc-file-len-test");
         fs::create_dir_all(&dir).unwrap();
         let long = dir.join("long.py");
-        fs::write(&long, "x = 1\n".repeat(801)).unwrap();
+        fs::write(&long, "x = 1\n".repeat(501)).unwrap();
         let hit = findings_for(&[long.to_string_lossy().into()], FILE_LENGTH_RULE);
+        assert_eq!(hit.len(), 1);
+        assert_eq!(hit[0].severity, Severity::Advisory, "{hit:?}");
+    }
+
+    #[test]
+    fn file_length_blocking_past_hard_limit() {
+        let dir = std::env::temp_dir().join("hc-file-len-block");
+        fs::create_dir_all(&dir).unwrap();
+        let huge = dir.join("huge.py");
+        fs::write(&huge, "x = 1\n".repeat(1001)).unwrap();
+        let hit = findings_for(&[huge.to_string_lossy().into()], FILE_LENGTH_RULE);
+        assert_eq!(hit.len(), 1);
+        assert_eq!(hit[0].severity, Severity::Blocking, "{hit:?}");
+    }
+
+    #[test]
+    fn rust_dbg_flags_and_println_does_not() {
+        let hit = findings_for(&[fixture("bad.rs")], "rust-dbg");
         assert_eq!(hit.len(), 1, "{hit:?}");
+        assert_eq!(hit[0].line, 2);
+        let prints = findings_for(&[fixture("bad.rs")], "debug-print");
+        assert!(
+            prints.is_empty(),
+            "println is deliberate CLI output: {prints:?}"
+        );
     }
 
     #[test]
