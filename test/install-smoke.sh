@@ -102,6 +102,7 @@ settings="$claude/settings.json"
 # the launcher path plus the mode arg, verbatim.
 lazarbin="$TEST_HOME/.lazar-harness/bin"
 lintcmd="$lazarbin/comment-lint claude-hook"
+checkcmd="$TEST_HOME/.lazar-harness/bin/harness-check check"
 complexitycmd="$lazarbin/complexity-lint"
 # OpenCode's write-time guard is a plugin, not a hook: it loads out of the plugin dir under the
 # OpenCode home and shells out to the same shared-bin core the Claude Code hook wires above.
@@ -376,7 +377,7 @@ else
   fail "settings.json wires comment-lint on PreToolUse at the shared-bin path: got '$lint_wiring'"
 fi
 
-all_wiring=$(all_wired_hooks)
+all_wiring=$(wired_hooks PreToolUse)
 expected_wiring=$(printf '%s\n%s' "$hooks/enforce-jj.sh" "$lintcmd")
 
 if [ "$all_wiring" = "$expected_wiring" ]; then
@@ -385,10 +386,16 @@ else
   fail "a fresh install wires only enforce-jj and comment-lint on PreToolUse: got '$all_wiring'"
 fi
 
-if [ -z "$(wired_hooks PostToolUse)" ]; then
-  pass "a fresh install leaves PostToolUse empty"
+# harness-check runs after the edit lands: it lints the file on disk against
+# the committed baseline, so PostToolUse is its surface and exit 2 feeds the
+# agent the blocking findings.
+check_wiring=$(wired_hooks PostToolUse | grep -F "$checkcmd" || true)
+expected_check=$(printf '%s' "$checkcmd")
+
+if [ "$check_wiring" = "$expected_check" ]; then
+  pass "a fresh install wires harness-check on PostToolUse at the shared-bin path"
 else
-  fail "a fresh install leaves PostToolUse empty"
+  fail "a fresh install wires harness-check on PostToolUse at the shared-bin path: got '$check_wiring'"
 fi
 
 # The matcher is comment-lint's reach: a write tool missing here is a write the linter never sees.
