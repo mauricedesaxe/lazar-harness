@@ -25,6 +25,24 @@ human on an interactive terminal can accept an oversized PR: `--force-size`
 prompts on a TTY and refuses in non-interactive contexts, so an agent cannot
 decide to exceed the budget.
 
+### What pr-size counts
+
+The budget is changed lines, default 1000, overridable with `--limit`. The
+range is every commit between the merge base and HEAD, where the base is
+`--base`, then `origin/HEAD`, then `origin/main`, `origin/master`, `main`,
+`master`, in that order.
+
+Per file it sums added plus deleted lines from `git diff --numstat`. Binary
+files are skipped. Files under an excluded path are skipped entirely:
+`node_modules`, `.venv`, `venv`, `vendor`, `dist`, `build`, `out`,
+`__pycache__`, `__marimo__`, `.beads`, `.git`, `.jj`, `fixtures`, `testdata`,
+plus `*.lock`, `*.min.js`, `*.min.css`, `*.d.ts`, `*.snap`, `*.pb.go`, and
+`*_pb2.py` anywhere in the path.
+
+Everything else counts the same: source, tests, markdown, and non-lockfile
+JSON. Deleted files contribute their deletion count. Renames contribute their
+net diff.
+
 ## Baselines
 
 `lint-baselines/` holds the ruff and oxlint baselines. See
