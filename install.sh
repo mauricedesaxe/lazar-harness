@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HARNESS_SOURCE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+HARNESS_SOURCE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-}")" && pwd)"
 
 # One invocation, whole harness. curl | bash hands the script a stdin and no
 # repository, so when the payload is not beside this script the script
@@ -705,6 +705,14 @@ install_linters() {
 # installer itself bootstrapped. A machine that reaches none of the three
 # still gets the harness; the hooks that call the binary degrade to no-ops,
 # which is the same contract the linters have.
+verify_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum -c -
+  else
+    shasum -a 256 -c -
+  fi
+}
+
 install_harness_check() {
   local dest="$LAZAR_BIN/harness-check" target tmp
   if [ -x "$HARNESS_SOURCE/target/release/harness-check" ]; then
@@ -727,7 +735,7 @@ install_harness_check() {
   tmp="$(mktemp -d)"
   if curl -fsSL "$base/$version/download/$asset" -o "$tmp/$asset" \
     && curl -fsSL "$base/$version/download/sha256sums.txt" -o "$tmp/sha256sums.txt" \
-    && (cd "$tmp" && grep " $asset" sha256sums.txt | sha256sum -c -) \
+    && (cd "$tmp" && grep " $asset" sha256sums.txt | verify_sha256) \
     && tar -xzf "$tmp/$asset" -C "$tmp"; then
     cp "$tmp/harness-check" "$dest"
     rm -rf "$tmp"
@@ -736,8 +744,11 @@ install_harness_check() {
   rm -rf "$tmp"
   if command -v cargo >/dev/null 2>&1; then
     echo "install.sh: no release binary for $target; building from source." >&2
-    (cd "$HARNESS_SOURCE" && cargo build --release --quiet) || return 1
-    cp "$HARNESS_SOURCE/target/release/harness-check" "$dest"
+    if (cd "$HARNESS_SOURCE" && cargo build --release --quiet); then
+      cp "$HARNESS_SOURCE/target/release/harness-check" "$dest"
+    else
+      echo "install.sh: cargo build failed; edit-time checks stay dormant." >&2
+    fi
     return 0
   fi
   echo "install.sh: harness-check binary unavailable (no release for $target, no cargo)."
@@ -749,7 +760,7 @@ install_harness_check() {
 # data, not binaries, so they ride the source rather than the release.
 # Jujutsu is the working copy the harness is built around (§28), and the
 # jj guard hook and the ship workflow assume it. Same acquisition shape as
-# beads: an existing jj is left alone, otherwise the checksummed release
+# beads: an existing jj is left alone, otherwise the official release
 # tarball lands in ~/.local/bin with a PATH warning.
 install_jj() {
   if command -v jj >/dev/null 2>&1; then
@@ -768,7 +779,7 @@ install_jj() {
   esac
   local base="https://github.com/jj-vcs/jj/releases"
   if [ "$version" = "latest" ]; then
-    tag="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "$base/latest" | sed 's#.*/tag/##')"
+    tag=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "$base/latest" | sed 's#.*/tag/##') || tag=""
   else
     tag="$version"
   fi
@@ -838,7 +849,7 @@ install_beads() {
   esac
   local base="https://github.com/gastownhall/beads/releases"
   if [ "$version" = "latest" ]; then
-    tag="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "$base/latest" | sed 's#.*/tag/##')"
+    tag=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "$base/latest" | sed 's#.*/tag/##') || tag=""
   else
     tag="$version"
   fi

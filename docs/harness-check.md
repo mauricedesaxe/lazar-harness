@@ -65,10 +65,19 @@ how a repo extends them. The baseline directory resolves from
 
 ## Wiring
 
-Claude Code: a `PostToolUse` hook matched on `Edit|Write` runs `check` on
-every file the agent touches; blocking findings reach the agent through
-stderr and it fixes them inline. The same hooks run inside subagents.
-OpenCode: a global plugin calls `check` on edit tools. install.sh writes both.
+Claude Code: a `PostToolUse` hook matched on `Edit|Write|MultiEdit` runs
+`check` on every file the agent touches; blocking findings and their
+file:line specifics reach the agent through stderr, and it fixes them
+inline. The same hooks run inside subagents. OpenCode: a global plugin
+calls `check` after the edit, write, and apply_patch tools. install.sh
+writes both.
+
+Interim state, until the Node hook retires: the older PreToolUse
+comment-lint hook still runs alongside this in both runtimes, so JS, Go,
+and Python files are judged twice on comments (once before the write by
+Node, once after by the binary) while Rust files are judged only by the
+binary, which is the one implementation that covers them. The directive
+exemption lists differ slightly between the two.
 
 ## Latency budget
 
@@ -80,5 +89,9 @@ slow linter degrades silently to the harness rules.
 
 `cargo build --release` produces `target/release/harness-check` (about 1.7 MB
 with the release profile: LTO, stripped, size-optimized). Dependencies are
-serde, serde_json, toml, and regex, chosen so real config parsing replaces
-the hand-rolled parsers a no-dependency build would need.
+serde, serde_json, toml, regex, and libc, chosen so real config parsing
+replaces the hand-rolled parsers a no-dependency build would need and the
+terminal check works on the darwin release target.
+
+CI runs this checker over its own source (the dogfood step): advisories are
+tolerated, blocking findings fail the build.

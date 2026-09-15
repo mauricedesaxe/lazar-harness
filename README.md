@@ -16,7 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/mauricedesaxe/lazar-harness/main/in
 
 One line, any machine: the script bootstraps its own source into the cache, installs the harness
 into Claude Code and OpenCode, downloads the `harness-check` binary for the platform from GitHub
-releases (checksums verified; `HARNESS_CHECK_VERSION=v0.1.0` pins, `HARNESS_REF=v0.1.0` pins the
+releases (checksums verified; `HARNESS_CHECK_VERSION=harness-check-v0.1.0` pins the binary, `HARNESS_REF=v0.1.0` pins the
 source), and copies the lint baselines. From a clone the same script runs locally:
 
 ```sh

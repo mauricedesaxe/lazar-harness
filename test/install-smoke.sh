@@ -398,6 +398,26 @@ else
   fail "a fresh install wires harness-check on PostToolUse at the shared-bin path: got '$check_wiring'"
 fi
 
+for baseline in ruff.toml oxlint.json; do
+  if [ -f "$TEST_HOME/.config/lazar-harness/linters/$baseline" ]; then
+    pass "the $baseline baseline installs to the shared linters dir"
+  else
+    fail "the $baseline baseline installs to the shared linters dir"
+  fi
+done
+
+if [ -f "$TEST_HOME/.config/opencode/plugin/harness-check.ts" ]; then
+  pass "the OpenCode harness-check plugin installs"
+else
+  fail "the OpenCode harness-check plugin installs"
+fi
+
+if "$TEST_HOME/.lazar-harness/bin/harness-check" version >/dev/null 2>&1; then
+  pass "the installed harness-check binary runs"
+else
+  fail "the installed harness-check binary runs"
+fi
+
 # The matcher is comment-lint's reach: a write tool missing here is a write the linter never sees.
 lint_matcher=$(matcher_of PreToolUse "$lintcmd")
 for tool in Edit Write MultiEdit; do

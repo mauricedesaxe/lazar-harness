@@ -31,10 +31,8 @@ jobs:
         run: cargo build --release --target ${{ matrix.target }}
       - name: Package
         run: |
-          dir="harness-check-${{ matrix.target }}"
-          mkdir "$dir"
-          cp "target/${{ matrix.target }}/release/harness-check" "$dir/"
-          tar -czf "$dir.tar.gz" "$dir"
+          tar -czf "harness-check-${{ matrix.target }}.tar.gz" \
+            -C "target/${{ matrix.target }}/release" harness-check
       - uses: actions/upload-artifact@v4
         with:
           name: harness-check-${{ matrix.target }}
