@@ -37,5 +37,10 @@ jobs:
         run: cargo clippy -- -D warnings
       - name: test
         run: cargo test
+      - name: dogfood
+        run: |
+          cargo build
+          files=$(find src -name '*.rs' ! -path '*/testdata/*' | sort)
+          ./target/debug/harness-check check $files || test $? -eq 1
       - name: build
         run: cargo build --release
