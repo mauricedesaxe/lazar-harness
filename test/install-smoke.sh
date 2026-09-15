@@ -868,7 +868,7 @@ unprefixed_skill=""
 for root in "$claude" "$opencode"; do
   for installed in "$root"/skills/*/; do
     case "$(basename -- "${installed%/}")" in
-    lazar-* | matt-* | pstack-* | plannotator-* | visual-explainer | bro | "$UNPREFIXED_BY_DESIGN") ;;
+    lazar-* | matt-* | pstack-* | plannotator-* | visual-explainer | bro | beads | "$UNPREFIXED_BY_DESIGN") ;;
     *) unprefixed_skill="$unprefixed_skill ${installed%/}" ;;
     esac
   done

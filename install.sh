@@ -747,10 +747,76 @@ install_harness_check() {
 
 # The baseline lint configs doctor and the edit-time fallback read. They are
 # data, not binaries, so they ride the source rather than the release.
+# The beads skill rides the same shared skills root everything else uses, so
+# agents in any repository know the workflow. The skill scopes itself: it
+# triggers only where a repository is initialized, which is what keeps beads
+# out of repos that do not use it.
+install_beads_skill() {
+  local src_dir="$HARNESS_SOURCE/.agents/skills/beads"
+  if [ -d "$src_dir" ]; then
+    rm -rf "$CLAUDE_HOME/skills/beads"
+    cp -R "$src_dir" "$CLAUDE_HOME/skills/beads"
+  fi
+}
+
 install_baselines() {
   mkdir -p "$LAZAR_LINTERS"
   cp "$HARNESS_SOURCE/lint-baselines/ruff.toml" "$LAZAR_LINTERS/ruff.toml"
   cp "$HARNESS_SOURCE/lint-baselines/oxlint.json" "$LAZAR_LINTERS/oxlint.json"
+}
+
+
+# Beads is the epic tracker the harness coordinates through, and installing
+# it is safe everywhere by construction: bd is inert until a repository is
+# initialized (.beads present), and the skill tells agents exactly that, so
+# work repos without initialization never see it used. npm is the official
+# channel; the GitHub release tarball with its checksum covers machines
+# without npm. An existing bd install is left alone.
+install_beads() {
+  if command -v bd >/dev/null 2>&1; then
+    return 0
+  fi
+  if command -v npm >/dev/null 2>&1; then
+    npm install -g --silent "@beads/bd${BEADS_VERSION:+@$BEADS_VERSION}" >/dev/null 2>&1 \
+      && command -v bd >/dev/null 2>&1 && return 0
+  fi
+  local version="${BEADS_VERSION:-latest}" os arch asset tag tmp
+  case "$(uname -s)/$(uname -m)" in
+    Darwin/arm64) os="darwin" arch="arm64" ;;
+    Darwin/x86_64) os="darwin" arch="amd64" ;;
+    Linux/x86_64) os="linux" arch="amd64" ;;
+    Linux/aarch64) os="linux" arch="arm64" ;;
+    *)
+      echo "install.sh: no beads build for $(uname -s)/$(uname -m); skipping." >&2
+      return 0
+      ;;
+  esac
+  local base="https://github.com/gastownhall/beads/releases"
+  if [ "$version" = "latest" ]; then
+    tag="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "$base/latest" | sed 's#.*/tag/##')"
+  else
+    tag="$version"
+  fi
+  [ -n "$tag" ] || { echo "install.sh: could not resolve a beads release; skipping." >&2; return 0; }
+  asset="beads_${tag#v}_${os}_${arch}.tar.gz"
+  tmp="$(mktemp -d)"
+  if curl -fsSL "$base/download/$tag/$asset" -o "$tmp/$asset" \
+    && curl -fsSL "$base/download/$tag/checksums.txt" -o "$tmp/checksums.txt" \
+    && (cd "$tmp" && grep " $asset\$" checksums.txt | sha256sum -c -) \
+    && tar -xzf "$tmp/$asset" -C "$tmp"; then
+    mkdir -p "$HOME/.local/bin"
+    cp "$tmp/bd" "$HOME/.local/bin/bd"
+    chmod +x "$HOME/.local/bin/bd"
+    case ":$PATH:" in
+      *":$HOME/.local/bin:"*) ;;
+      *) echo "install.sh: bd installed to $HOME/.local/bin, which is not on PATH." >&2
+         echo "  add it: export PATH=\"\$HOME/.local/bin:\$PATH\"" >&2 ;;
+    esac
+  else
+    echo "install.sh: beads binary download failed; skipping. Install later with: npm install -g @beads/bd" >&2
+  fi
+  rm -rf "$tmp"
+  return 0
 }
 
 # The OpenCode write-time guard: a tool.execute.before plugin that shells out to the same
@@ -906,6 +972,8 @@ install_opencode_plugin
 install_linters
 install_harness_check
 install_baselines
+install_beads
+install_beads_skill
 write_claude_settings
 install_hooks
 
