@@ -747,6 +747,51 @@ install_harness_check() {
 
 # The baseline lint configs doctor and the edit-time fallback read. They are
 # data, not binaries, so they ride the source rather than the release.
+# Jujutsu is the working copy the harness is built around (§28), and the
+# jj guard hook and the ship workflow assume it. Same acquisition shape as
+# beads: an existing jj is left alone, otherwise the checksummed release
+# tarball lands in ~/.local/bin with a PATH warning.
+install_jj() {
+  if command -v jj >/dev/null 2>&1; then
+    return 0
+  fi
+  local version="${JJ_VERSION:-latest}" os arch asset tag tmp
+  case "$(uname -s)/$(uname -m)" in
+    Darwin/arm64) os="aarch64-apple-darwin" ;;
+    Darwin/x86_64) os="x86_64-apple-darwin" ;;
+    Linux/x86_64) os="x86_64-unknown-linux-musl" ;;
+    Linux/aarch64) os="aarch64-unknown-linux-musl" ;;
+    *)
+      echo "install.sh: no jj build for $(uname -s)/$(uname -m); skipping." >&2
+      return 0
+      ;;
+  esac
+  local base="https://github.com/jj-vcs/jj/releases"
+  if [ "$version" = "latest" ]; then
+    tag="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "$base/latest" | sed 's#.*/tag/##')"
+  else
+    tag="$version"
+  fi
+  [ -n "$tag" ] || { echo "install.sh: could not resolve a jj release; skipping." >&2; return 0; }
+  asset="jj-$tag-$os.tar.gz"
+  tmp="$(mktemp -d)"
+  if curl -fsSL "$base/download/$tag/$asset" -o "$tmp/$asset" \
+    && tar -xzf "$tmp/$asset" -C "$tmp"; then
+    mkdir -p "$HOME/.local/bin"
+    cp "$tmp/jj" "$HOME/.local/bin/jj"
+    chmod +x "$HOME/.local/bin/jj"
+    case ":$PATH:" in
+      *":$HOME/.local/bin:"*) ;;
+      *) echo "install.sh: jj installed to $HOME/.local/bin, which is not on PATH." >&2
+         echo "  add it: export PATH=\"\$HOME/.local/bin:\$PATH\"" >&2 ;;
+    esac
+  else
+    echo "install.sh: jj download failed; skipping. Install later via https://jj-vcs.github.io/jj/install/" >&2
+  fi
+  rm -rf "$tmp"
+  return 0
+}
+
 # The beads skill rides the same shared skills root everything else uses, so
 # agents in any repository know the workflow. The skill scopes itself: it
 # triggers only where a repository is initialized, which is what keeps beads
@@ -974,6 +1019,7 @@ install_harness_check
 install_baselines
 install_beads
 install_beads_skill
+install_jj
 write_claude_settings
 install_hooks
 
