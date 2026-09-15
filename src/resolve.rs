@@ -304,8 +304,19 @@ mod tests {
   ]
 }"#;
 
+    fn unique(tag: &str) -> String {
+        let thread = std::thread::current()
+            .name()
+            .unwrap_or("t")
+            .replace("::", "-");
+        std::env::temp_dir()
+            .join(format!("hc-{}-{}-{}", tag, std::process::id(), thread))
+            .to_string_lossy()
+            .into_owned()
+    }
+
     fn fake_linter(name: &str, output: &str) -> (String, String) {
-        let bin_dir = std::env::temp_dir().join(format!("hc-{}-{}", name, std::process::id()));
+        let bin_dir = std::path::PathBuf::from(unique(name));
         fs::create_dir_all(&bin_dir).unwrap();
         let record = bin_dir.join("args.log");
         let script = format!(

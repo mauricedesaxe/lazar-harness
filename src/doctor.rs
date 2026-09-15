@@ -227,8 +227,19 @@ mod tests {
         fs::write(path, content).unwrap();
     }
 
+    fn unique(tag: &str) -> String {
+        let thread = std::thread::current()
+            .name()
+            .unwrap_or("t")
+            .replace("::", "-");
+        std::env::temp_dir()
+            .join(format!("hc-{}-{}-{}", tag, std::process::id(), thread))
+            .to_string_lossy()
+            .into_owned()
+    }
+
     fn baseline_dir() -> String {
-        let dir = std::env::temp_dir().join(format!("hc-doctor-{}", std::process::id()));
+        let dir = std::path::PathBuf::from(unique("doctor-baseline"));
         write(&format!("{}/ruff.toml", dir.display()), BASELINE);
         write(&format!("{}/oxlint.json", dir.display()), "{}");
         dir.to_string_lossy().into()
